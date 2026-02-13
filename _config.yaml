@@ -1,0 +1,7 @@
+title: 1xTrashPanda
+description: Offensive Security Portfolio & Writeups
+url: "https://1xtp.github.io"
+plugins:
+  - jekyll-seo-tag
+kramdown:
+  syntax_highlighter: rouge

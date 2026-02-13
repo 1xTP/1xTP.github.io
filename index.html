@@ -1,0 +1,41 @@
+---
+layout: default
+title: Home
+---
+<header class="console-header">
+    <div class="path-display">
+        <span class="root">1xTrashPanda@127.0.0.1</span>:<span class="path">~/home/new_posts </span><span class="cursor">&nbsp;</span>
+    </div>
+</header>
+
+<section class="posts-container">
+    {% comment %} 
+       We grab all pages that have a PID and sort them newest-first
+    {% endcomment %}
+    {% assign all_writeups = site.pages | where_exp: "item", "item.pid != nil" | sort: "date" | reverse %}
+
+    {% for writeup in all_writeups limit: 5 %}
+    <article class="post-console">
+        <div class="post-edge"></div>
+        <div class="post-content">
+            <div class="post-header">
+                <span class="post-id">[ PID: {{ writeup.pid }} ]</span>
+                <h3>{{ writeup.title }}</h3>
+                <span class="post-date">{{ writeup.date | date: "%b %d, %Y" }}</span>
+            </div>
+            
+            <p class="post-description">
+                {{ writeup.description }}
+            </p>
+            
+            <div class="post-tags">
+                {% for tag in writeup.tags %}
+                <span class="tag">#{{ tag }}</span>
+                {% endfor %}
+            </div>
+            
+            <a href="{{ writeup.url | relative_url }}" class="read-cmd">./view_writeup.sh</a>
+        </div>
+    </article>
+    {% endfor %}
+</section>

@@ -1,0 +1,104 @@
+---
+layout: default
+title: Building the trashpanda.local AD Lab
+date: 2026-02-13
+pid: "0210"
+category: "AD"
+difficulty: "EASY"
+description: "A custom Active Directory lab built from scratch to dive into enterprise identity management and offensive security."
+tags: [AD, Homelab, PowerShell, RedTeam]
+---
+<article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Why I Built This</h2>
+        <p>I wanted a safe place to break things. This project is a custom <strong>Active Directory (AD)</strong> lab built from scratch so I could dive into enterprise identity management and offensive security without accidentally nuking a real network. The goal: a fully functional domain called <code>trashpanda.local</code> where I can practice AD exploitation and defense.</p>
+
+        <h3>The Goods</h3>
+        <ul>
+            <li><strong>Virtualization:</strong> Oracle VirtualBox (The classic)</li>
+            <li><strong>Networking:</strong> Isolated NAT Network</li>
+            <li><strong>The Core:</strong> Active Directory Domain Services (AD DS)</li>
+            <li><strong>The Lazy Way:</strong> PowerShell automation for user setup</li>
+        </ul>
+    </section>
+
+    <section class="report-section">
+        <h2>2. The Lab Layout</h2>
+        <p>The whole thing runs on a VirtualBox <strong>NAT Network</strong>. This keeps the lab talking to itself and the internet (for updates) while keeping it totally walled off from my actual home computer. I let VirtualBox handle the DHCP heavy lifting for the subnet.</p>
+
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Hostname</th>
+                    <th>OS</th>
+                    <th>What it does</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>DC01</strong></td>
+                    <td>Windows Server 2022</td>
+                    <td>Domain Controller</td>
+                    <td>The brains of <code>trashpanda.local</code></td>
+                </tr>
+                <tr>
+                    <td><strong>PC01</strong></td>
+                    <td>Windows 11</td>
+                    <td>Workstation</td>
+                    <td>Standard domain-joined target</td>
+                </tr>
+                <tr>
+                    <td><strong>Kali-X</strong></td>
+                    <td>Kali Linux 2024.x</td>
+                    <td>Attacker Node</td>
+                    <td>Where the "hacking" happens</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="report-section">
+        <h2>3. Scripting the Population</h2>
+        <p>To make this feel like a real company, I needed users. Clicking "New User" in ADUC ten times sounded boring, so I wrote a PowerShell script to do the busy work. It pulls from a <code>users.csv</code> and dumps them into the right OUs automatically.</p>
+
+        <div class="code-block-no-pre">
+            {% highlight powershell %}
+            # Automation: Because clicking is for suckers
+            Import-Module ActiveDirectory
+
+            $CSVPath = "C:\LabFiles\users.csv"
+            $Pass = ConvertTo-SecureString "P@ssw0rd123" -AsPlainText -Force 
+
+            Import-Csv $CSVPath | ForEach-Object {
+                # Target the right department OU automatically
+                $TargetOU = "OU=$($_.Department),OU=Corp_Employees,DC=trashpanda,DC=local"
+                
+                New-ADUser -Name "$($_.FirstName) $($_.LastName)" `
+                        -SamAccountName $_.Username `
+                        -UserPrincipalName "$($_.Username)@trashpanda.local" `
+                        -Path $TargetOU `
+                        -AccountPassword $Pass `
+                        -Enabled $true `
+                        -ChangePasswordAtLogon $false
+            }
+            {% endhighlight %}
+        </div>
+    </section>
+
+    <section class="report-section">
+        <h2>4. Current Goals & Skill Building</h2>
+        <p>Now that they're online, I’m using this environment to test high-impact stuff like:</p>
+        <ul>
+            <li><strong>LLMNR/NBT-NS Poisoning:</strong> Stealing hashes with Responder.</li>
+            <li><strong>Kerberoasting:</strong> Hunting for service accounts with weak passwords.</li>
+            <li><strong>AS-REP Roasting:</strong> Targeting users who don't require pre-auth.</li>
+            <li><strong>BloodHound:</strong> Visualizing how to get to Domain Admin from a low-level account.</li>
+        </ul>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+</article>

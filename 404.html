@@ -1,0 +1,48 @@
+---
+permalink: /404.html
+layout: null
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found | 1xTP</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body class="error-page-body">
+
+    <div class="error-container">
+        <div class="error-terminal">
+            <div class="terminal-header">
+                <div class="dot red"></div>
+                <div class="dot yellow"></div>
+                <div class="dot green"></div>
+                <span class="terminal-title">system_crash.log</span>
+            </div>
+            
+            <div class="terminal-body">
+                <div class="tb-line">Traceback (most recent call last):</div>
+                
+                <div class="tb-frame">
+                    &nbsp;&nbsp;File <span class="tb-path">"/var/www/html/404.html"</span> returned.
+                </div>
+                
+                <div class="tb-error">
+                    PageNotFoundError: The requested URL was not found on this server.
+                </div>
+
+                <div class="recovery-line">
+                    <span class="prompt">1xTP@127.0.0.1:~/errors#</span> 
+                    <a href="/" class="read-cmd">./return_home.sh</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('url-placeholder').innerText = window.location.pathname;
+    </script>
+</body>
+</html>
