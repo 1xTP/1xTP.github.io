@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Breaking My Homelab AD | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Breaking My Homelab AD | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Breaking My Homelab AD" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Adding 5 vulnerabilities to my AD from default settings to complex misconfigurations." />
+<meta property="og:description" content="Adding 5 vulnerabilities to my AD from default settings to complex misconfigurations." />
+<link rel="canonical" href="https://1xtp.github.io/writeups/breaking-my-ad/" />
+<meta property="og:url" content="https://1xtp.github.io/writeups/breaking-my-ad/" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-02-16T00:00:00-08:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Breaking My Homelab AD" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-02-16T00:00:00-08:00","datePublished":"2026-02-16T00:00:00-08:00","description":"Adding 5 vulnerabilities to my AD from default settings to complex misconfigurations.","headline":"Breaking My Homelab AD","mainEntityOfPage":{"@type":"WebPage","@id":"https://1xtp.github.io/writeups/breaking-my-ad/"},"url":"https://1xtp.github.io/writeups/breaking-my-ad/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Overview</h2>
+        <p>In part 1, I built the "Gold Image". This image is a fully default AD setup. I made no effort to actually patch anything or make anything vulnerable.</p>
+
+        <p>The goal for this phase was to add vulnerabilities that I have seen in CTFs and real-world engagement reports often. I didn't want to just run the exploits, instead configure the vulnerability itself to understand exactly why they happen. I've added five attack points, ranging from default settings to complex misconfigurations.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>2. The "I Didn't Even Do Anything" Problems</h2>
+        <p>The scariest thing about these first two is that I didn't actually have to "break" anything. I just left the default Windows settings alone.</p>
+
+        <h3>2.1 LLMNR & NBT-NS Poisoning</h3>
+        <p>Windows is way too eager to find things on the network. If DNS fails, it falls back to legacy protocols like LLMNR to broadcast a "Who is this?" message to everyone.</p>
+
+        <b>The Config</b>
+        <p>By default the option to "Turn off multicast name resolution" is set to "not configured"</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/LLMNR-config.png" alt="Multicast Resulation Not Configured.">
+        </div>
+
+        <b>The Attack</b>
+        <p>I'll listen for these broadcasts on the Kali box and spoof a response to get the NTLMv2 hashes.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/LLMNR-attack-proof.png" alt="Terminal Output of LLMNR Attack.">
+        </div>
+
+        <h3>2.2 IPv6 DNS Takeover</h3>
+        <p>Even if you aren't using IPv6, Windows favors it over IPv4. This is a massive blind spot.</p>
+
+        <b>The Config</b>
+        <p>The "misconfiguration" is just the default state of the network adapter.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/IPv6-config.png" alt="IPv6 Interface settings.">
+        </div>
+
+        <b>The Attack</b>
+        <p>I’ll use <code>mitm6</code> to pretend to be the DHCPv6 server and trick the Windows 11 client into sending authentication traffic to me.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/IPv6-Takeover-Proof.png" alt="Terminal Output of IPv6 Attack via Kali Box.">
+        </div>
+    </section>
+    
+    <section class="report-section">
+        <h2>3. Roasting</h2>
+        <p>After the defaults, I moved on to identity-based attacks. These required me to manually weaken the user accounts I created with my PowerShell script.</p>
+
+        <h3>3.1 AS-REP Roasting</h3>
+        <p>This is a "lazy admin" move. I took one of my user accounts and manually disabled Kerberos pre-authentication.</p>
+
+        <b>The Config</b>
+        <p>I took one of my user accounts downgraded their security.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/Roasting-config.png" alt="AD User Settings with 'Do not require Kerberos preauthentication' checked.">
+        </div>
+
+        <b>The Attack</b>
+        <p>Now, anyone can request a ticket that contains that user's password hash without needing a password first.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/AS-REP-proof.png" alt="Terminal Output of AS-REP Attack via Kali Box.">
+        </div>
+
+        <h3>3.2 Kerberoasting</h3>
+        <p>To practice kerberoasting, I needed a Service Principle Name (SPN) attached to a user account.</p>
+
+        <b>The Config</b>
+        <p>I created a dedicated service account (ssql) and used powershell to register an SPN for it.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/Kerberoasting-config.png" alt="Terminal Output showing User 'ssql' has a set SPN.">
+        </div>
+        
+        <b>The Attack</b>
+        <p>Now any valid user in the domain can request a service ticket for it, which I can then try to crack offline.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/Kerberoasting-proof.png" alt="Terminal Output of Kerberoasting Attack via Kali Box.">
+        </div>
+    </section>
+    
+    <section class="report-section">
+        <h2>4. AD Certificate Services</h2>
+        <p>This was the most complex setup. Active Directory Certificate Services (AD CS) is a beast, and misconfiguring it leads to total domain compromise (ESC1).</p>
+
+        <h3>AD CS Misconfiguration (ESC1)</h3>
+
+        <p>I installed the AD CS role on the Domain Controller. The vulnerability here isn't the CA itself, but a specific "Certificate Template" I created.</p>
+
+        <b>The Config</b>
+        <p>I created "Workstation" template that allows users to define their own identity in the certificate.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/ESC1-config.png" alt="Certificate Settings with 'Show in reques' Enabled.">
+        </div>
+        
+        <b>The Attack</b>
+        <p>Now that the certificate was active, I used <code>Certipy-ad</code> to scan the network and confirm the vulnerability was discoverable.</p>
+
+        <div class="image-container">
+            <img src="/assets/0211/ESC1-proof.png" alt="Terminal Output of Admin TakeOver Attack via Kali Box">
+        </div>
+    </section>
+
+    <section class="report-section">
+        <h2>5. Conclusion</h2>
+        <p>My lab is no longer a pristine environment and apparently never was in the first place as a default setup. Instead it’s a minefield.</p>
+
+        <p>I’ve verified that all 5 vulnerabilities are active and reachable from the Kali machine on the network. The infrastructure is done, the traps are set, and the users are weak.</p>
+
+        <p>It was very surprising to see the simple cause of some of the vulnerabilities I've exploited in the past during HackTheBox machines. Now that I know how these vulnerabilites are caused, I know how to keep them away.</p>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+</article>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>
