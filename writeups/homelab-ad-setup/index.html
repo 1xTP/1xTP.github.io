@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Building My Homelab AD | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Building My Homelab AD | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Building My Homelab AD" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A custom Active Directory lab built from scratch to look into AD offense and defense." />
+<meta property="og:description" content="A custom Active Directory lab built from scratch to look into AD offense and defense." />
+<link rel="canonical" href="http://0.0.0.0:4000/writeups/homelab-ad-setup/" />
+<meta property="og:url" content="http://0.0.0.0:4000/writeups/homelab-ad-setup/" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-02-13T00:00:00-08:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Building My Homelab AD" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-02-13T00:00:00-08:00","datePublished":"2026-02-13T00:00:00-08:00","description":"A custom Active Directory lab built from scratch to look into AD offense and defense.","headline":"Building My Homelab AD","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/writeups/homelab-ad-setup/"},"url":"http://0.0.0.0:4000/writeups/homelab-ad-setup/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Overview</h2>
+        <p>A couple of days ago, my HackTheBox VIP subscription ran out, and since I lost my easy access to their Active Directory environments, I decided it was time to build my own AD homelab in VirtualBox. This actually works out better, because now I can keep the environment forever and break it whenever and however I want.</p>
+
+        <p>My goal is simple: Setup an AD environment that I can make vulnerable and hack in any way I want to.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>2. Network Overview</h2>
+        <p>I kept the setup pretty small to save resources. I have 3 virtual machines in the network. They are all connected through a NAT network in VirtualBox. This keeps them isolated from my home network while allowing them to still talk to each other. Currently only the Windows 11 client is joined to the domain. The Kali box is just the standard weekly image from Offensive Security</p>
+
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>OS</th>
+                    <th>IP Address</th>
+                    <th>Status</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>DC01</strong></td>
+                    <td>Windows Server 2022</td>
+                    <td>10.0.2.5</td>
+                    <td>Domain Controller</td>
+                    <td>Host the AD services</td>
+                </tr>
+                <tr>
+                    <td><strong>PC01</strong></td>
+                    <td>Windows 11</td>
+                    <td>10.0.2.4</td>
+                    <td>Joined</td>
+                    <td>Victim/Client Machine</td>
+                </tr>
+                <tr>
+                    <td><strong>Kali Box</strong></td>
+                    <td>Linux</td>
+                    <td>10.0.2.20</td>
+                    <td>Unjoined</td>
+                    <td>Attacker Machine</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="report-section">
+        <h2>3. DC setup</h2>
+        <p>Getting the Domain Controller running on Windows Server 2022 was actually easier than I expected. I set the IP to be static as that was the first warning I saw. Once the networking was setup, I installed the AD Domain Services and DNS roles. After that, I just promoted the server to be the Domain Controller for my new domain, <code>trashpanda.local</code>.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>4. Windows Client Setup</h2>
+        <p>Installing the Windows 11 client is pretty standard, it's just like setting up a normal PC. After I connected this client to the domain, it was finished and I was able to log in.</p>
+    </section>
+    
+    <section class="report-section">
+        <h2>5. Automating User Creation</h2>
+        <p>I started creating users manually, but I realized about three users in that it was going to be incredibly tedious to do this every time I reset the lab.</p>
+
+        <p>Instead of wasting time , I wrote a PowerShell script to do it for me. It reads a list of names from a CSV file and automatically creates the users, assigns them to the right departments (like HR or Sales), and sets their passwords.</p>
+
+        <figure class="highlight"><pre><code class="language-powershell" data-lang="powershell"><span class="w">       </span><span class="c"># ==========================================</span><span class="w">
+        </span><span class="c"># AD LAB BUILDER</span><span class="w">
+        </span><span class="c"># Usage: ./build_lab_fixed.ps1</span><span class="w">
+        </span><span class="c"># ==========================================</span><span class="w">
+
+        </span><span class="nv">$DomainDN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"DC=trashpanda,DC=local"</span><span class="w"> 
+        </span><span class="nv">$DomainName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"trashpanda.local"</span><span class="w">
+
+        </span><span class="nv">$BaseOU</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"OU=Corp_Employees,</span><span class="nv">$DomainDN</span><span class="s2">"</span><span class="w">
+
+        </span><span class="nv">$Password</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ConvertTo-SecureString</span><span class="w"> </span><span class="s2">"Summer2025!"</span><span class="w"> </span><span class="nt">-AsPlainText</span><span class="w"> </span><span class="nt">-Force</span><span class="w">
+        </span><span class="nv">$CsvPath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">".\users.csv"</span><span class="w">
+
+        </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[*] Starting Setup for </span><span class="nv">$DomainName</span><span class="s2">..."</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Cyan</span><span class="w">
+
+        </span><span class="c"># Create Root OU</span><span class="w">
+        </span><span class="kr">try</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">New-ADOrganizationalUnit</span><span class="w"> </span><span class="nt">-Name</span><span class="w"> </span><span class="s2">"Corp_Employees"</span><span class="w"> </span><span class="nt">-Path</span><span class="w"> </span><span class="nv">$DomainDN</span><span class="w"> </span><span class="nt">-ProtectedFromAccidentalDeletion</span><span class="w"> </span><span class="bp">$false</span><span class="w"> </span><span class="nt">-ErrorAction</span><span class="w"> </span><span class="nx">Stop</span><span class="w">
+            </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[+] Created Root OU: Corp_Employees"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Green</span><span class="w">
+        </span><span class="p">}</span><span class="w"> </span><span class="kr">catch</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="c"># If it fails, check if it already exists</span><span class="w">
+            </span><span class="kr">if</span><span class="w"> </span><span class="p">(</span><span class="bp">$_</span><span class="w"> </span><span class="o">-match</span><span class="w"> </span><span class="s2">"already exists"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[!] Root OU already exists. Continuing..."</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Yellow</span><span class="w">
+            </span><span class="p">}</span><span class="w"> </span><span class="kr">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[X] FAILED to create Root OU. Error: </span><span class="bp">$_</span><span class="s2">"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Red</span><span class="w">
+                </span><span class="kr">Exit</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+
+        </span><span class="c"># Create Department OUs &amp; Users</span><span class="w">
+        </span><span class="n">Start-Sleep</span><span class="w"> </span><span class="nt">-Seconds</span><span class="w"> </span><span class="nx">2</span><span class="w">
+
+        </span><span class="kr">if</span><span class="w"> </span><span class="p">(</span><span class="n">Test-Path</span><span class="w"> </span><span class="nv">$CsvPath</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nv">$Users</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Import-Csv</span><span class="w"> </span><span class="nv">$CsvPath</span><span class="w">
+        </span><span class="p">}</span><span class="w"> </span><span class="kr">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[X] Error: users.csv not found at </span><span class="nv">$CsvPath</span><span class="s2">"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Red</span><span class="w">
+            </span><span class="kr">Exit</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+
+        </span><span class="kr">foreach</span><span class="w"> </span><span class="p">(</span><span class="nv">$Row</span><span class="w"> </span><span class="kr">in</span><span class="w"> </span><span class="nv">$Users</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="c"># Generate Username: FirstInitial + LastName (e.g., mscott)</span><span class="w">
+            </span><span class="nv">$SamAccountName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nv">$Row</span><span class="o">.</span><span class="nf">FirstName</span><span class="o">.</span><span class="nf">Substring</span><span class="p">(</span><span class="nx">0</span><span class="p">,</span><span class="nx">1</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">LastName</span><span class="p">)</span><span class="o">.</span><span class="nf">ToLower</span><span class="p">()</span><span class="w">
+            </span><span class="nv">$DisplayName</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">FirstName</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s2">" "</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">LastName</span><span class="w">
+            </span><span class="nv">$Department</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">Department</span><span class="w">
+            
+            </span><span class="nv">$DeptOU</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"OU=</span><span class="nv">$Department</span><span class="s2">,</span><span class="nv">$BaseOU</span><span class="s2">"</span><span class="w">
+
+            </span><span class="c"># Create Department OU if missing</span><span class="w">
+            </span><span class="kr">try</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="kr">if</span><span class="w"> </span><span class="p">(</span><span class="o">-not</span><span class="w"> </span><span class="p">(</span><span class="n">Get-ADOrganizationalUnit</span><span class="w"> </span><span class="nt">-Filter</span><span class="w"> </span><span class="s2">"Name -eq '</span><span class="nv">$Department</span><span class="s2">'"</span><span class="w"> </span><span class="nt">-SearchBase</span><span class="w"> </span><span class="nv">$BaseOU</span><span class="w"> </span><span class="nt">-ErrorAction</span><span class="w"> </span><span class="nx">SilentlyContinue</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w">
+                    </span><span class="n">New-ADOrganizationalUnit</span><span class="w"> </span><span class="nt">-Name</span><span class="w"> </span><span class="nv">$Department</span><span class="w"> </span><span class="nt">-Path</span><span class="w"> </span><span class="nv">$BaseOU</span><span class="w"> </span><span class="nt">-ProtectedFromAccidentalDeletion</span><span class="w"> </span><span class="bp">$false</span><span class="w">
+                    </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[+] Created Department OU: </span><span class="nv">$Department</span><span class="s2">"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Green</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">}</span><span class="w"> </span><span class="kr">catch</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[X] Could not find Base OU '</span><span class="nv">$BaseOU</span><span class="s2">'. Did the root creation fail?"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Red</span><span class="w">
+                </span><span class="kr">Continue</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+
+            </span><span class="c"># Create User</span><span class="w">
+            </span><span class="kr">try</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="n">New-ADUser</span><span class="w"> </span><span class="nt">-Name</span><span class="w"> </span><span class="nv">$DisplayName</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-SamAccountName</span><span class="w"> </span><span class="nv">$SamAccountName</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-GivenName</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">FirstName</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-Surname</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">LastName</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-UserPrincipalName</span><span class="w"> </span><span class="s2">"</span><span class="nv">$SamAccountName</span><span class="s2">@</span><span class="nv">$DomainName</span><span class="s2">"</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-Path</span><span class="w"> </span><span class="nv">$DeptOU</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-AccountPassword</span><span class="w"> </span><span class="nv">$Password</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-Enabled</span><span class="w"> </span><span class="bp">$true</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-Description</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">Description</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-Title</span><span class="w"> </span><span class="nv">$Row</span><span class="o">.</span><span class="nf">JobTitle</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-ChangePasswordAtLogon</span><span class="w"> </span><span class="bp">$false</span><span class="w"> </span><span class="se">`
+</span><span class="w">                    </span><span class="nt">-ErrorAction</span><span class="w"> </span><span class="nx">Stop</span><span class="w">
+                
+                </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[+] Created User: </span><span class="nv">$SamAccountName</span><span class="s2">"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Green</span><span class="w">
+            </span><span class="p">}</span><span class="w"> </span><span class="kr">catch</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="kr">if</span><span class="w"> </span><span class="p">(</span><span class="bp">$_</span><span class="w"> </span><span class="o">-match</span><span class="w"> </span><span class="s2">"already exists"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+                    </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[!] User </span><span class="nv">$SamAccountName</span><span class="s2"> exists. Skipping."</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Yellow</span><span class="w">
+                </span><span class="p">}</span><span class="w"> </span><span class="kr">else</span><span class="w"> </span><span class="p">{</span><span class="w">
+                    </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[X] Failed to create </span><span class="nv">$SamAccountName</span><span class="s2">. Error: </span><span class="bp">$_</span><span class="s2">"</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Red</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+
+        </span><span class="n">Write-Host</span><span class="w"> </span><span class="s2">"[*] Lab Setup Complete."</span><span class="w"> </span><span class="nt">-ForegroundColor</span><span class="w"> </span><span class="nx">Cyan</span><span class="w">
+        </span></code></pre></figure>
+    </section>
+
+    <section class="report-section">
+        <h2>6. Conclusion and Next Parts</h2>
+        <p>Now that my "Gold Image" is set up and working, the boring part is over.</p>
+
+        <p>In the next part, I’m going to start breaking things. I plan to set up some Service Accounts with weak permissions so I can practice Kerberoasting with my Kali box.</p>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+</article>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>

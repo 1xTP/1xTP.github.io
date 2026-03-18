@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Categories | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Categories | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Categories" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Offensive Security Portfolio &amp; Writeups" />
+<meta property="og:description" content="Offensive Security Portfolio &amp; Writeups" />
+<link rel="canonical" href="http://0.0.0.0:4000/categories.html" />
+<meta property="og:url" content="http://0.0.0.0:4000/categories.html" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Categories" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","description":"Offensive Security Portfolio &amp; Writeups","headline":"Categories","url":"http://0.0.0.0:4000/categories.html"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <div class="categories-container">
+    <div class="cat-header">
+        <h2><i class="fas fa-folder-tree"></i> Directory Listing</h2>
+        <p>Select a subsystem to view archived reports.</p>
+    </div>
+
+    <div class="category-grid">
+        
+        
+        <a href="/categories/writeups.html" class="cat-card">
+            <div class="cat-icon"><i class="fas fa-flag"></i></div>
+            <div class="cat-info">
+                <h3>CTF Writeups</h3>
+                <p>Walkthroughs for HackTheBox & TryHackMe machines.</p>
+            </div>
+            <div class="cat-stat">
+                <span><i class="fas fa-file-code"></i> 4 Files</span>
+            </div>
+        </a>
+
+        
+        <a href="/categories/active-directory.html" class="cat-card">
+            <div class="cat-icon"><i class="fas fa-network-wired"></i></div>
+            <div class="cat-info">
+                <h3>Active Directory</h3>
+                <p>Kerberoasting, relay attacks, and forest dominance.</p>
+            </div>
+            <div class="cat-stat">
+                <span><i class="fas fa-file-code"></i> 2 Files</span>
+            </div>
+        </a>
+
+        
+        <div class="cat-card locked">
+            <div class="cat-icon"><i class="fas fa-terminal"></i></div>
+            <div class="cat-info">
+                <h3>Custom Tools</h3>
+                <p>Python scripts and bash automation.</p>
+            </div>
+            <div class="cat-stat">
+                
+                    <span><i class="fas fa-lock"></i> Access Denied</span>
+                
+            </div>
+        </div>
+    </div>
+</div>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>

