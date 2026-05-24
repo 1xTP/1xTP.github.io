@@ -1,0 +1,31 @@
+---
+layout: default
+---
+<article class="report-body">
+    
+    {% if page.unlock_date %}
+        {% assign current_time = "now" | date: "%s" | plus: 0 %}
+        {% assign unlock_time = page.unlock_date | date: "%s" | plus: 0 %}
+
+        {% if current_time < unlock_time %}
+            <div id="htb-lock-screen" class="dash-card lock-screen-container">
+                <div class="cmd-header lock-cmd-header">
+                    <span class="prompt">1xTrashPanda@writeups:~$</span> ./check_htb_status.sh
+                </div>
+                <div class="lock-content">
+                    <h1 class="lock-icon">&#128274;</h1>
+                    <h2 class="lock-title">MACHINE ACTIVE</h2>
+                    <p class="lock-desc">This writeup is locked until the machine is retired.</p>
+                    <div class="status-badge lock-badge">
+                        <span>Unlocks on {{ page.unlock_date | date: "%B %d, %Y at %H:%M %Z" }}</span>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            {{ content }}
+        {% endif %}
+    {% else %}
+        {{ content }}
+    {% endif %}
+
+</article>

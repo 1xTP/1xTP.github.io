@@ -1,0 +1,41 @@
+---
+layout: default
+title: Categories
+--- 
+<div class="categories-container">
+    <div class="cat-header">
+        <h2><i class="fas fa-folder-tree"></i> Directory Listing</h2>
+        <p>Select a subsystem to view archived reports.</p>
+    </div>
+
+    <div class="category-grid">
+        {% comment %} Using site.writeups now! {% endcomment %}
+        {% assign ctf_count = site.writeups | where: "category", "CTFs" | size %}
+        <a href="{{ '/categories/writeups.html' | relative_url }}" class="cat-card">
+            <div class="cat-icon"><i class="fas fa-flag"></i></div>
+            <div class="cat-info">
+                <h3>CTF Writeups</h3>
+                <p>Walkthroughs for HackTheBox & TryHackMe machines.</p>
+            </div>
+            <div class="cat-stat">
+                <span><i class="fas fa-file-code"></i> {{ ctf_count }} {% if ctf_count == 1 %}File{% else %}Files{% endif %}</span>
+            </div>
+        </a>
+
+        {% assign tools_count = site.writeups | where: "category", "Programming tools" | size %}
+        <div class="cat-card {% if tools_count == 0 %}locked{% endif %}">
+            <div class="cat-icon"><i class="fas fa-terminal"></i></div>
+            <div class="cat-info">
+                <h3>Custom Tools</h3>
+                <p>Python scripts and bash automation.</p>
+            </div>
+            <div class="cat-stat">
+                {% if tools_count > 0 %}
+                    <span><i class="fas fa-file-code"></i> {{ tools_count }} Files</span>
+                {% else %}
+                    <span><i class="fas fa-lock"></i> Empty</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

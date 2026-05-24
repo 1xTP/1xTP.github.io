@@ -1,0 +1,16 @@
+# Jekyll & Ruby
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+vendor/
+.bundle/
+
+# Environment Variables & Secrets
+.env
+*.pem
+*.key
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
