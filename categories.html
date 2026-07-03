@@ -9,7 +9,6 @@ title: Categories
     </div>
 
     <div class="category-grid">
-        {% comment %} Using site.writeups now! {% endcomment %}
         {% assign ctf_count = site.writeups | where: "category", "CTFs" | size %}
         <a href="{{ '/categories/writeups.html' | relative_url }}" class="cat-card">
             <div class="cat-icon"><i class="fas fa-flag"></i></div>
