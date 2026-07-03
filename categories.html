@@ -22,8 +22,8 @@ title: Categories
             </div>
         </a>
 
-        {% assign tools_count = site.writeups | where: "category", "Programming tools" | size %}
-        <div class="cat-card {% if tools_count == 0 %}locked{% endif %}">
+        {% assign tools_count = site.writeups | where: "category", "Custom-Tools" | size %}
+        <a href="{{ '/categories/custom-scripts.html' | relative_url }}" class="cat-card {% if tools_count == 0 %}locked{% endif %}">
             <div class="cat-icon"><i class="fas fa-terminal"></i></div>
             <div class="cat-info">
                 <h3>Custom Tools</h3>
@@ -31,11 +31,27 @@ title: Categories
             </div>
             <div class="cat-stat">
                 {% if tools_count > 0 %}
-                    <span><i class="fas fa-file-code"></i> {{ tools_count }} Files</span>
+                    <span><i class="fas fa-file-code"></i> {{ tools_count }} {% if tools_count == 1 %}File{% else %}Files{% endif %}</span>
                 {% else %}
                     <span><i class="fas fa-lock"></i> Empty</span>
                 {% endif %}
             </div>
-        </div>
+        </a>
+
+        {% assign research_count = site.writeups | where: "category", "Research" | size %}
+        <a href="{{ '/categories/research.html' | relative_url }}" class="cat-card {% if research_count == 0 %}locked{% endif %}">
+            <div class="cat-icon"><i class="fas fa-book"></i></div>
+            <div class="cat-info">
+                <h3>Research</h3>
+                <p>Studies, data analysis, and documentation.</p>
+            </div>
+            <div class="cat-stat">
+                {% if research_count > 0 %}
+                    <span><i class="fas fa-file-code"></i> {{ research_count }} {% if research_count == 1 %}File{% else %}Files{% endif %}</span>
+                {% else %}
+                    <span><i class="fas fa-lock"></i> Empty</span>
+                {% endif %}
+            </div>
+        </a>
     </div>
 </div>

@@ -1,7 +1,7 @@
 ---
 layout: default
-title: Writeups
-target_category: "CTFs"
+title: Research
+target_category: "Research"
 ---
 <div class="post-list-container">
     <div class="cmd-header">
@@ -13,12 +13,6 @@ target_category: "CTFs"
 
     {% for post in filtered_posts %}
     <article class="post-row">
-        {% if post.difficulty %}
-        <div class="post-status difficulty-{{ post.difficulty | downcase }}">
-            <span>{{ post.difficulty | upcase }}</span>
-        </div>
-        {% endif %}
-
         <div class="post-info">
             <div class="post-title-row">
                 <h3><a href="{{ post.url | relative_url }}">{{ post.title }}</a></h3>

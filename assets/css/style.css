@@ -114,6 +114,9 @@ ul {
 .profile-links {
   width: 100%;
   margin-top: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .profile-links a {
   display: block;
