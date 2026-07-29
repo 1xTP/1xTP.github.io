@@ -11,7 +11,7 @@ tags: [HTB, Linux, SSH, JWT]
 ### 1. Overview
 This challenge involved exploiting a vulnerability in the authentication system of a web application in order to gain administrative access. After bypassing the login system, sensitive credentials were discovered within the application dashboard which allowed SSH access to the machine. From there, privilege escalation was achieved by abusing an exposed SSH certificate authority key to generate a signed key for the root user.
 
-### 2. Enum
+### 2. Recon
 My first step was to run a standard service and version scan using Nmap to see what services were exposed.
 ```
 └─$ nmap -sCV 10.129.244.220 --min-rate 5000 
@@ -89,7 +89,7 @@ From this information it became clear that authentication relied on **JWT tokens
 /api/auth/jwks
 ```
 
-Curling that endpoint returned the RSA key used by the application.
+Querying that endpoint returned the RSA key used by the application.
 ```
 └─$ curl http://10.129.4.116:8080/api/auth/jwks | jq .
 {

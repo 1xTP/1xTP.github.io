@@ -26,7 +26,7 @@ The scan found 3 ports:
 - **80 HTTP**
 - **443 HTTPS**
 
-Browsing to the website hosted at port 80 greeted me with a NextGen Healthcare Mirth Connect dashboard. From this dashboard I was about to download a file called `webstart.jnlp` via the 'Launch Mirth Connect Administrator' button.
+Browsing to the website hosted at port 80 greeted me with a NextGen Healthcare Mirth Connect dashboard. From this dashboard I was able to download a file called `webstart.jnlp` via the 'Launch Mirth Connect Administrator' button.
 ### 3. Foothold
 Reading the `webstart.jnlp` file revealed a version number at the very bottom of the file:
 ```
@@ -150,7 +150,7 @@ database.username = mirthdb
 database.password = MirthPass123!
 ```
 
-Using these credentials, I managed to recovery a hash for the user `sedric`:
+Using these credentials, I managed to recover a hash for the user `sedric`:
 ```
 sedric:u/+LBBOUnadiyFBsMOoIDPLbUR0rk59kEkPU17itdrVWA/kLMt3w+w==
 ```
@@ -201,9 +201,9 @@ Using hashcat, I recovered the following credentials:
 sedric:snowflake1
 ```
 ### 4. Root
-Now that I had ssh access, I could start enumeration for my path to root. The first things I checked were the `/opt` folder and the `sudo -l` command. The `sudo -l` command return a message saying `sudo not found`  and the `/opt` folder had nothing in it.
+Now that I had ssh access, I could start enumeration for my path to root. The first things I checked were the `/opt` folder and the `sudo -l` command. The `sudo -l` command returned an error stating sudo was not found, and the `/opt` directory was empty.
 
-After a while, I decided to upload `pspy64` to the machine to see what processes were running as root. This found a python script called `notif.py`
+To monitor background processes, I uploaded `pspy64` to the machine to see what processes were running as root. This found a python script called `notif.py`
 ```
 sedric@interpreter:/tmp$ ./pspy64
 2026/05/12 18:21:03 CMD: UID=0     PID=3544   | /usr/bin/python3 /usr/local/bin/notif.py

@@ -22,12 +22,12 @@ PORT     STATE SERVICE VERSION
 ```
 
 The scan found 2 open ports:
-- 80 http
-- 5985 Microsoft HTTPAPI
+- **80 http**
+- **5985 Microsoft HTTPAPI**
 
 It also identified the domain `monitorsfour.htb`, so I added it to my hosts file.
 
-Before visiting the site, I started subdomain fuzzing, which found the following subomain:
+Before visiting the site, I started subdomain fuzzing, which found the following subdomain:
 ```
 └─$ ffuf -u http://monitorsfour.htb -H "Host: FUZZ.monitorsfour.htb" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-20000.txt -ac
 cacti                   [Status: 302, Size: 0, Words: 1, Lines: 1, Duration: 204ms]
