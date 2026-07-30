@@ -9,50 +9,47 @@ description: "A Python script to automate the initial recon process of capture t
 tags: [Networking, Automation]
 ---
 ### Overview
-ARGUS is a Python script I built to automate the initial reconnaissance phase of Capture The Flag (CTF) challenges. It wraps Nmap, Dirsearch, and Ffuf into a single workflow, handling the execution, output filtering, and local DNS routing so I don't have to.
+ARGUS is a Python-based reconnaissance tool I built to automate the initial enumeration phase of Capture The Flag (CTF) challenges. It wraps Nmap, Dirsearch, and Ffuf into a unified workflow, managing execution, real-time output parsing, and local DNS routing.
 
-### Why I Built This
-After playing HackTheBox for a while, I realized I was spending the first 5 minutes of every single box typing the exact same commands. I got bored and slightly annoyed with the repetitive setup phase, so I wrote this to handle the busywork.
+### The Problem
+During typical CTF workflows, the first couple of minutes are largely identical. I would run a port scan, map the IP to a local hosts file, and kick off directory and virtual host enumeration. Typing the exact same commands and manually managing DNS entries for every target creates unnecessary friction.
 
-Originally, my plan was to thread the tools and make the scans insanely fast. I quickly realized why that doesn't work well in practice. Blasting a box with concurrent network scans just leads to rate limits, dropped connections, and missed ports. Because of that, I moved away from raw execution speed and instead focused on automating the workflow and keeping the parsed data accurate.
+I wrote ARGUS to handle this setup phase automatically. While heavy automated scanners exist, I wanted a lightweight, dependency-free script made specifically for my workflow that outputs clean, actionable data without massive log files.
 
-### How It Works
-I structured this using an Object-Oriented approach to keep things modular and easy to read.
+### Design Decisions & Architecture
+**State-Aware Execution**
+I originally wanted to thread the tools to make the scans insanely fast, but blasting a box with concurrent network scans just gets you rate-limited or causes you to miss open ports. Instead, I made ARGUS linear but smart. It runs Nmap first, checks if web ports (like 80 or 443) are actually open, and if they aren't, it completely skips the Dirsearch and Ffuf phases so I don't waste time waiting on dead ends.
 
-**Execution & Data Filtering** 
-I initially tried streaming the output while the tools ran, but progress bars and terminal updates completely broke my parsing logic. To fix this, I switched to using `subprocess.run()` for batch processing. The script waits for the network tool to finish its scan completely, grabs the raw output, filters out the junk, and prints only what I actually need. To keep the terminal from looking dead during a long Nmap scan, I threw in a native ASCII spinner on a background thread.
+**Real-Time Streaming & Parsing**
+Trying to parse raw terminal output with string splitting is a nightmare waiting to break. I swapped Nmap over to output XML and parsed it natively with Python's `xml.etree.ElementTree`.
 
-**Automated /etc/hosts Management** 
-Having to open a new terminal tab to manually map discovered subdomains (like `dev.enigma.htb`) to the target IP was the most annoying part of the initial recon process. ARGUS reads the local `/etc/hosts` file directly. If it sees that the primary domain or any newly discovered Ffuf subdomains are missing, it prompts to add them.
+But for Dirsearch and Ffuf, waiting for a 20,000-word list to finish just to see the results completely defeats the point of a terminal UI. I ripped out the blocking subprocesses and set up `subprocess.Popen` to stream the output in real-time. Now, the second a directory or subdomain gets hit, it prints to the screen. I also dumped all the junk status codes (like 500s) straight into Dirsearch's native `-x` filter so Python doesn't even have to process the noise.
 
-Instead of making the file a mess by appending duplicate lines for the same IP, it uses a simple `sed` command to find the exact line starting with the target IP and adds the new subdomains onto the end of it:
-```
-sudo sed -i '/^10.10.10.10/ s/$/ dev.enigma.htb/' /etc/hosts
-```
+**Safe `/etc/hosts` Management**
+Manually editing `/etc/hosts` every time I find a new virtual host breaks my workflow, so ARGUS checks and routes domains automatically before and after the scans. I originally used a raw Bash `sed` command for this, but that's messy and opens the door for shell injection. Now, the script handles the logic safely in memory. It reads the hosts file, lines up the new routes, writes a temporary file, and safely copies it over using a strict `subprocess.run` list with `sudo`.
 
-**Theming and UI**
-I got tired of hardcoding ANSI color codes into every print statement, so I set up a few global variables at the top of the file (`PRIMARY`, `FOREGROUND`, `MUTED`, `DANGER`). This makes it easy to highlight open ports and mute standard service information without having a mess of escape characters buried in the parsing logic.
+**Artifact Cleanup**
+Dirsearch refuses to stop dropping a `reports/` folder in my working directory—the built-in command-line flag to disable it is literally broken. I like to keep my CTF project folders clean and leave no trace behind, so I threw a `cleanup()` method at the end of the script to automatically sweep the directory and trash those stray artifacts.
 
 ### Usage
-**Prerequisites** You need the following installed and accessible in your path:
+**Prerequisites**
+You need the following installed and accessible in your path:
 - `nmap`
 - `dirsearch`
 - `ffuf`
-- SecLists (specifically the `subdomains-top1million-20000.txt` wordlist)
-
-If you decided to move/install the SecLists dictionary outside of `/usr/share/wordlists/`, be sure to change the directory in the script accordingly.
+- SecLists
 
 **Execution**
 ```
-# Standard Execution (Defaults to HTTPS)
+# Standard Execution (Defaults to HTTPS and standard SecLists path)
 ./main.py -i 10.10.10.10 -d example.htb
 
-# Force HTTP Execution
-./main.py -i 10.10.10.10 -d example.htb -k
+# Force HTTP Execution and pass a custom wordlist
+./main.py -i 10.10.10.10 -d example.htb -k -w /path/to/custom_wordlist.txt
 ```
 
-### The Script
-```python
+### The Code
+```
 #!/usr/bin/env python3
 import sys
 import os
@@ -61,41 +58,34 @@ import subprocess
 import argparse
 import threading
 import time
+import xml.etree.ElementTree as ET
 
-PRIMARY = '\033[96m'     # Bright Cyan (Headers, Spinners, Highlights)
-FOREGROUND = '\033[97m'  # Bright White (Main Output Text)
-MUTED = '\033[37m'       # Light Grey (Secondary/Boring Info)
-DANGER = '\033[91m'      # Bright Red (Errors/Failures)
-RESET = '\033[0m'        # Terminal Default
+PRIMARY = '\033[96m'
+SUCCESS = '\033[92m'
+WARNING = '\033[93m'
+DANGER = '\033[91m'
+MUTED = '\033[90m'
+FOREGROUND = '\033[97m'
+RESET = '\033[0m'
 
 class ArgusScanner:
-    def __init__(self, targetIP, targetDomain, useHttp):
-        self.targetIP = targetIP
-        self.targetDomain = targetDomain.replace("http://", "").replace("https://", "")
-        self.protocol = "http" if useHttp else "https"
-        self.targetURL = f"{self.protocol}://{self.targetDomain}"
-        self.targetWordlist = "/usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-20000.txt"
+    def __init__(self, target_ip, target_domain, use_http=True, wordlist=None):
+        self.target_ip = target_ip
+        self.target_domain = target_domain.replace("http://", "").replace("https://", "")
+        self.protocol = "http" if use_http else "https"
+        self.target_url = f"{self.protocol}://{self.target_domain}"
+        self.wordlist = wordlist or "/usr/share/wordlists/SecLists/Discovery/DNS/subdomains-top1million-20000.txt"
+        
+        self.web_ports_open = False
+        self.discovered_subdomains = []
+        self.missing_tools = []
 
-    def printHeader(self, text):
-        print(f"\n{PRIMARY}{text}{RESET}")
-        print(f"{PRIMARY}{'—' * 50}{RESET}")
-
-    def printFooter(self):
-        print(f"{PRIMARY}{'—' * 50}{RESET}")
-
-    def printData(self, text, highlight=False, muted=False):
-        if highlight:
-            color = PRIMARY
-        elif muted:
-            color = MUTED
-        else:
-            color = FOREGROUND
-            
+    def log(self, text, color=FOREGROUND):
         print(f"{color}{text}{RESET}")
 
-    def printError(self, text):
-        print(f"{DANGER}[!] {text}{RESET}")
-        sys.exit(1)
+    def log_header(self, text):
+        print(f"\n{PRIMARY}{text}{RESET}")
+        print(f"{PRIMARY}{'—' * 50}{RESET}")
 
     def _spinner(self, event, message):
         spinner_chars = ['|', '/', '-', '\\']
@@ -105,159 +95,187 @@ class ArgusScanner:
             sys.stdout.flush()
             idx = (idx + 1) % len(spinner_chars)
             time.sleep(0.1)
-
         sys.stdout.write('\r' + ' ' * (len(message) + 6) + '\r')
         sys.stdout.flush()
 
-    def checkTools(self):
-        requiredDictionary = "/usr/share/wordlists/SecLists"
-        requiredTools = ["nmap", "dirsearch", "ffuf"]
-
-        for tool in requiredTools:
+    def check_tools(self):
+        required_tools = ["nmap", "dirsearch", "ffuf"]
+        for tool in required_tools:
             if shutil.which(tool) is None:
-                self.printError(f"Install the following tool: {tool}")
+                self.missing_tools.append(tool)
 
-        if not os.path.exists(requiredDictionary):
-            self.printError(f"SecList wordlist directory does not exist at {requiredDictionary}.")
+        if self.missing_tools:
+            self.log(f"[!] Missing dependencies: {', '.join(self.missing_tools)}", DANGER)
+            sys.exit(1)
 
-    def getMissingDomains(self, domains):
-        missing = []
-        try:
-            with open('/etc/hosts', 'r') as f:
-                hostsContent = f.read()
-            
-            for domain in domains:
-                if domain not in hostsContent:
-                    missing.append(domain)
-        except Exception as e:
-            self.printError(f"Could not read /etc/hosts: {e}")
-            
-        return missing
+        if not os.path.exists(self.wordlist):
+            self.log(f"[!] Wordlist not found at {self.wordlist}", DANGER)
+            sys.exit(1)
 
-    def addToHosts(self, domains):
-        missing = self.getMissingDomains(domains)
+    def stream_command(self, cmd):
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1
+        )
+        for line in process.stdout:
+            yield line
+        process.wait()
+
+    def nmap(self):
+        self.log_header(f"Scanning Ports on {self.target_ip}")
+        cmd = ["nmap", "-sC", "-sV", self.target_ip, "-oX", "-"]
         
-        if not missing:
-            return
-
-        self.printHeader("Hosts File Management")
-        for d in missing:
-            self.printData(f" - Missing from /etc/hosts: {d}", muted=True)
-        
-        try:
-            prompt = f"\n{PRIMARY}[?] Add {len(missing)} domain(s) to /etc/hosts? (Requires sudo) [Y/n]: {RESET}"
-            choice = input(prompt).strip().lower()
-            
-            if choice == '' or choice == 'y':
-                newDomains = ' '.join(missing)
-                
-                with open('/etc/hosts', 'r') as f:
-                    ipExists = any(line.strip().startswith(self.targetIP) for line in f)
-
-                if ipExists:
-                    cmd = f"sudo sed -i '/^{self.targetIP}/ s/$/ {newDomains}/' /etc/hosts"
-                else:
-                    entry = f"{self.targetIP}\t{newDomains}"
-                    cmd = f"echo '{entry}' | sudo tee -a /etc/hosts > /dev/null"
-                    
-                subprocess.run(cmd, shell=True, check=True)
-                
-                self.printData(f"[+] Successfully updated /etc/hosts", highlight=True)
-            else:
-                self.printData("[-] Skipping /etc/hosts modification.", muted=True)
-        except Exception as e:
-            self.printError(f"Failed to edit /etc/hosts: {e}")
-
-    def executeCommand(self, cmd, loadingMessage):
         done_event = threading.Event()
-        spinner_thread = threading.Thread(target=self._spinner, args=(done_event, loadingMessage))
-        
+        spinner_thread = threading.Thread(target=self._spinner, args=(done_event, "Running Nmap..."))
         spinner_thread.start()
-        
+
         try:
-            rawOutput = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            output = rawOutput.stdout
-        except subprocess.CalledProcessError as e:
-            output = e.stdout
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=True)
+            xml_output = result.stdout
+        except subprocess.CalledProcessError:
+            self.log("\n[!] Nmap scan failed.", DANGER)
+            return
         finally:
             done_event.set()
             spinner_thread.join()
 
-        return output
+        try:
+            root = ET.fromstring(xml_output)
+            for host in root.findall('host'):
+                for port in host.findall('.//port'):
+                    state = port.find('state')
+                    if state is not None and state.get('state') == 'open':
+                        port_id = port.get('portid')
+                        service = port.find('service')
+                        service_name = service.get('name') if service is not None else "unknown"
+                        
+                        if service_name in ['http', 'https', 'http-alt'] or port_id in ['80', '443', '8080', '3000']:
+                            self.web_ports_open = True
 
-    def startNmap(self):
-        cmd = ["nmap", "-sCV", self.targetIP, "--min-rate", "5000"]
-        output = self.executeCommand(cmd, f"Running Nmap against {self.targetIP}...")
+                        self.log(f" [+] Port {port_id}/tcp : {service_name}", PRIMARY)
+        except ET.ParseError:
+            self.log("[!] Failed to parse Nmap XML output.", DANGER)
 
-        self.printHeader("Nmap Results")
+    def dirsearch(self):
+        if not self.web_ports_open:
+            self.log("\n[-] No web ports detected. Skipping Dirsearch.", MUTED)
+            return
+
+        self.log_header(f"Fuzzing Directories on {self.target_url}")
+        cmd = ["dirsearch", "-u", self.target_url, "--no-color", "-q", "-x", "500,502,503,404,400"]
+
+        for line in self.stream_command(cmd):
+            clean_line = line.strip()
+            if clean_line.startswith("[") and "]" in clean_line:
+                parts = clean_line.split(" - ", 2)
+                if len(parts) >= 2:
+                    status_code = parts[0].split(" ")[-1]
+                    size = parts[1].strip()
+                    url_info = parts[2] if len(parts) > 2 else ""
+
+                    color = SUCCESS if status_code.startswith('2') else WARNING if status_code.startswith(('3', '4')) else MUTED
+                    print(f" {color}[{status_code}]{RESET} {MUTED}[{size:>7}]{RESET} {FOREGROUND}{url_info}{RESET}")
+
+    def ffuf(self):
+        if not self.web_ports_open:
+            self.log("\n[-] No web ports detected. Skipping Ffuf.", MUTED)
+            return
+
+        self.log_header(f"Fuzzing Subdomains on {self.target_domain}")
+        cmd = ["ffuf", "-u", self.target_url, "-H", f"Host: FUZZ.{self.target_domain}", "-w", self.wordlist, "-ac"]
+
+        for line in self.stream_command(cmd):
+            clean_line = line.strip()
+            if "[Status:" in clean_line:
+                parts = clean_line.split("[Status:")
+                subdomain = parts[0].strip()
+                
+                stats_block = parts[1].split(",")
+                status_code = stats_block[0].strip()
+
+                full_domain = f"{subdomain}.{self.target_domain}"
+                self.discovered_subdomains.append(full_domain)
+                
+                color = SUCCESS if status_code.startswith('2') else WARNING
+                print(f" {color}[+]{RESET} {FOREGROUND}{full_domain:<30}{RESET} {MUTED}[Status: {status_code}]{RESET}")
+
+    def manage_hosts_file(self):
+        domains_to_check = [self.target_domain] + self.discovered_subdomains
+        missing_domains = []
 
         try:
-            ports = output.split("VERSION\n")[1].split("Service Info:")[0]
-            for line in ports.strip().split('\n'):
-                cleanLine = line.lstrip() 
-                
-                if cleanLine and cleanLine[0].isdigit():
-                    self.printData(f" - {cleanLine}", highlight=True)
-                else:
-                    self.printData(f"   {cleanLine}", muted=True)
-        except IndexError:
-            print(f"{DANGER}[!] Could not parse Nmap output table.{RESET}")
+            with open('/etc/hosts', 'r') as f:
+                hosts_content = f.read()
+                for domain in domains_to_check:
+                    if domain not in hosts_content:
+                        missing_domains.append(domain)
+        except Exception as e:
+            self.log(f"\n[!] Could not read /etc/hosts: {e}", DANGER)
+            return
 
-        self.printFooter()
+        if not missing_domains:
+            return
 
-    def startDirsearch(self):
-        cmd = ["dirsearch", "-u", self.targetURL, "--no-color", "-q"]
-        output = self.executeCommand(cmd, f"Running Dirsearch against {self.targetURL}...")
-
-        self.printHeader("Dirsearch Results")
-
-        for line in output.splitlines():
-            cleanLine = line.strip()
-
-            if cleanLine.startswith("[") and "]" in cleanLine[9:11]:
-                self.printData(f" {cleanLine}")
-
-        self.printFooter()
-
-    def startFfuf(self):
-        cmd = ["ffuf", "-u", self.targetURL, "-H", f"Host: FUZZ.{self.targetDomain}", "-w", self.targetWordlist, "-ac", "-s"]
-        output = self.executeCommand(cmd, f"Running Ffuf on {self.targetDomain}...")
-
-        self.printHeader("Ffuf Results")
-
-        lines = [line for line in output.splitlines() if line.strip()]
-        foundSubdomains = []
+        self.log_header("Hosts File Management")
+        for d in missing_domains:
+            self.log(f" - Missing: {d}", MUTED)
         
-        for line in lines:
-            self.printData(line)
-            fullDomain = f"{line}.{self.targetDomain}"
-            foundSubdomains.append(fullDomain)
+        prompt = f"\n{PRIMARY}[?] Add {len(missing_domains)} domain(s) to /etc/hosts? (Requires sudo) [Y/n]: {RESET}"
+        choice = input(prompt).strip().lower()
+        
+        if choice not in ('', 'y'):
+            self.log("[-] Skipping /etc/hosts modification.", MUTED)
+            return
 
-        self.printFooter()
+        try:
+            with open('/etc/hosts', 'r') as f:
+                lines = f.readlines()
 
-        if foundSubdomains:
-            self.addToHosts(foundSubdomains)
+            ip_found = False
+            new_lines = []
+            new_domains_str = ' '.join(missing_domains)
 
-    def runScanner(self):
-        self.checkTools()
-        self.addToHosts([self.targetDomain])
+            for line in lines:
+                if line.strip().startswith(self.target_ip):
+                    line = line.rstrip() + f" {new_domains_str}\n"
+                    ip_found = True
+                new_lines.append(line)
 
-        self.startNmap()
-        self.startDirsearch()
-        self.startFfuf()
+            if not ip_found:
+                new_lines.append(f"{self.target_ip}\t{new_domains_str}\n")
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="ARGUS - Automated Reconnaissance & Enumeration Suite", 
-        epilog="Example: ./main.py -i 10.10.10.10 -d enigma.htb -k | Author: 1xTP"
-    )
-    
-    parser.add_argument("-i", "--ip", required=True, help="The IP address of the target (e.g, 10.10.10.10)")
-    parser.add_argument("-d", "--domain", required=True, help="The assumed or known domain of the target (e.g, example.com)")
-    parser.add_argument("-k", "--http", required=False, action="store_true", help="Force HTTP instead of HTTPS")
+            temp_path = "/tmp/argus_hosts_tmp"
+            with open(temp_path, 'w') as f:
+                f.writelines(new_lines)
+            
+            subprocess.run(["sudo", "cp", temp_path, "/etc/hosts"], check=True)
+            subprocess.run(["rm", temp_path], check=True)
+
+            self.log("[+] Successfully updated /etc/hosts", SUCCESS)
+        except Exception as e:
+            self.log(f"[!] Failed to update /etc/hosts: {e}", DANGER)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="ARGUS - Refactored Recon Tool")
+    parser.add_argument("-i", "--ip", required=True, help="Target IP address")
+    parser.add_argument("-d", "--domain", required=True, help="Target domain")
+    parser.add_argument("-w", "--wordlist", help="Path to subdomain wordlist")
     
     args = parser.parse_args()
 
-    scanner = ArgusScanner(args.ip, args.domain, args.http)
-    scanner.runScanner()
+    scanner = ArgusScanner(
+        target_ip=args.ip,
+        target_domain=args.domain,
+        wordlist=args.wordlist
+    )
+    
+    scanner.check_tools()
+    scanner.manage_hosts_file()
+    scanner.nmap()
+    scanner.dirsearch()
+    scanner.ffuf()
+    scanner.manage_hosts_file()
 ```
