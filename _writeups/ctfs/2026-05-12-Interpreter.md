@@ -182,8 +182,8 @@ def convert_hash(mirth_b64):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python3 mirth_converter.py <Mirth_Base64_String>")
-        print("Example: python3 mirth_converter.py u/+LBBOUnadiyFBsMOoIDPLbUR0rk59kEkPU17itdrVWA/kLMt3w+w==")
+        print("Usage: python3 hash_conversion.py <Mirth_Base64_String>")
+        print("Example: python3 hash_conversion.py u/+LBBOUnadiyFBsMOoIDPLbUR0rk59kEkPU17itdrVWA/kLMt3w+w==")
         sys.exit(1)
 
     convert_hash(sys.argv[1])

