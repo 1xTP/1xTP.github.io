@@ -99,7 +99,7 @@ I cracked the hash using Hashcat, which revealed the password: `Keepmesafeandwar
 
 Using these credentials, I was able to log in over SSH as the `fismathack` user.
 ### 4. Root
-After gaining SSH access, I began priv-esc enumeration. As usual, I started with: `sudo -l`. This showed that the user could run `/usr/sbin/needrestart` as root without a password.
+After gaining SSH access, I began priv-esc enumeration. As usual, I started with `sudo -l`. This showed that the user could run `/usr/sbin/needrestart` as root without a password.
 
 To exploit this, I created a Python module that would be loaded when `needrestart` executed.
 ```
