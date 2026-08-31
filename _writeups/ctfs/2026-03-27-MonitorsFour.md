@@ -4,10 +4,10 @@ title: MonitorsFour - CTF
 date: 2026-03-27
 pid: "6840"
 category: "CTFs"
+htb: true
 difficulty: "EASY"
 description: "Chaining API credential leaks with Cacti command injection, and a Docker api exposure to gain root access."
 tags: [HTB, Windows, Docker]
-unlock_date: 2026-06-13 12:00:00 -0700
 ---
 ### 1. Overview
 This machine involved chaining multiple web vulnerabilities to gain initial access, followed by exploiting a misconfigured Docker environment to achieve root access. An exposed API endpoint leaked user credentials, which were reused to access a vulnerable Cacti instance. After gaining a shell inside a container, an exposed Docker API was abused to interact with the host system and retrieve the root flag.

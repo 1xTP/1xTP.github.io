@@ -4,6 +4,7 @@ title: Principal - CTF
 date: 2026-03-14
 pid: "0214"
 category: "CTFs"
+htb: true
 difficulty: "MEDIUM"
 description: "Bypassing pac4j-jwt authentication with a forged JWE token and exploiting SSH Certificate Authorities for root access"
 tags: [HTB, Linux, SSH, JWT]
