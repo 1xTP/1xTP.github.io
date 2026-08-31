@@ -4,6 +4,7 @@ title: Interpreter - CTF
 date: 2026-05-12
 pid: "4856"
 category: "CTFs"
+htb: true
 difficulty: "MEDIUM"
 description: "Chaining an unauthenticated Mirth Connect RCE with database credential recovery for initial access to exploit a Python-based server-side template injection for root access."
 tags: [HTB, Linux, Python, Mirth Connect]

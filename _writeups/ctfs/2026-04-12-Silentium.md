@@ -4,6 +4,7 @@ title: Silentium - CTF
 date: 2026-04-12
 pid: "5582"
 category: "CTFs"
+htb: true
 difficulty: "EASY"
 description: "Chaining an unauthenticated password reset with a Flowise RCE for initial access to exploit a symlink-based vulnerability in an internal Gogs service for root access."
 tags: [Linux, Docker, Python, Flowise, Gogs]

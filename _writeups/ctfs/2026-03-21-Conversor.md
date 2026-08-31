@@ -4,6 +4,7 @@ title: Conversor - CTF
 date: 2026-03-21
 pid: "4898"
 category: "CTFs"
+htb: true
 difficulty: "EASY"
 description: "Exploiting XSLT injection for arbitrary file write to achieve RCE via cron jobs, followed by priv-esc through a vulnerable needrestart version."
 tags: [HTB, Linux, SSH]

@@ -4,6 +4,7 @@ title: SmartHire - CTF
 date: 2026-05-19
 pid: "5080"
 category: "CTFs"
+htb: true
 difficulty: "MEDIUM"
 description: "Chaining an MLFlow insecure deserialization vulnerability for initial access to exploit a passwordless sudo script via Python library hijacking for root access."
 tags: [HTB,Linux,Python,MLFlow]
