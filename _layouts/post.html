@@ -3,21 +3,51 @@ layout: default
 ---
 <article class="report-body">
     
+    <div class="post-header-section">
+        <div class="post-directory-path">
+            [ PID: {{ page.pid | default: "0000" }} ] <span class="path-separator">|</span> ~/{{ page.category | downcase }}
+        </div>
+        
+        <h1 class="post-title">{{ page.title }}</h1>
+        
+        <div class="post-meta-details">
+            <span><i class="fas fa-calendar-alt"></i> {{ page.date | date: "%B %d, %Y" }}</span>
+            
+            {% if page.difficulty %}
+                <span class="difficulty-{{ page.difficulty | downcase }} post-difficulty-badge">
+                    {{ page.difficulty | upcase }}
+                </span>
+            {% endif %}
+            
+            {% if page.htb %}
+                <span class="htb-badge"><i class="fas fa-cube"></i> HackTheBox</span>
+            {% endif %}
+        </div>
+        
+        <div class="post-tags post-tags-header">
+            {% for tag in page.tags %}
+                <span class="tag">#{{ tag }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
     {% if page.unlock_date %}
         {% assign current_time = "now" | date: "%s" | plus: 0 %}
         {% assign unlock_time = page.unlock_date | date: "%s" | plus: 0 %}
 
         {% if current_time < unlock_time %}
-            <div id="htb-lock-screen" class="dash-card lock-screen-container">
-                <div class="cmd-header lock-cmd-header">
-                    <span class="prompt">1xTrashPanda@writeups:~$</span> ./check_htb_status.sh
-                </div>
-                <div class="lock-content">
-                    <h1 class="lock-icon">&#128274;</h1>
-                    <h2 class="lock-title">MACHINE ACTIVE</h2>
-                    <p class="lock-desc">This writeup is locked until the machine is retired.</p>
-                    <div class="status-badge lock-badge">
-                        <span>Unlocks on {{ page.unlock_date | date: "%B %d, %Y at %H:%M %Z" }}</span>
+            <div id="htb-lock-screen" class="dash-card">
+                <div class="lock-ui-header">
+                    <div class="cmd-header lock-cmd-header">
+                        <span class="prompt">1xTrashPanda@writeups:~$</span> ./check_htb_status.sh
+                    </div>
+                    <div class="lock-content">
+                        <h1 class="lock-icon">&#128274;</h1>
+                        <h2 class="lock-title">MACHINE ACTIVE</h2>
+                        <p class="lock-desc">This writeup is locked until the machine is retired.</p>
+                        <div class="status-badge lock-badge" style="border-color: var(--accent); color: var(--accent);">
+                            <span>Unlocks on {{ page.unlock_date | date: "%B %d, %Y at %H:%M" }}</span>
+                        </div>
                     </div>
                 </div>
             </div>

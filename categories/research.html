@@ -4,8 +4,12 @@ title: Research
 target_category: "Research"
 ---
 <div class="post-list-container">
+    
     <div class="cmd-header">
-        <span class="prompt">$</span> ls -al /home/{{ page.target_category | downcase }}
+        <div class="cmd-prompt-group">
+            <span class="prompt">$</span> ls -la /home/{{ page.target_category | downcase }}
+            <span class="grep-pipe">| grep "</span><input type="text" id="catSearch" class="search-input" placeholder="Search" autocomplete="off" spellcheck="false"><span class="grep-pipe-close">"</span>
+        </div>
         <a href="{{ '/categories.html' | relative_url }}" class="back-btn"><i class="fas fa-level-up-alt"></i> ../</a>
     </div>
 
@@ -23,12 +27,24 @@ target_category: "Research"
                 {% for tag in post.tags %}
                 <span class="tag"><i class="fas fa-tag"></i> {{ tag }}</span>
                 {% endfor %}
-
-                {% if post.category == "CTFs" %}
-                <span class="pwn-status"><i class="fas fa-skull"></i> Rooted</span>
-                {% endif %}
             </div>
         </div>
     </article>
     {% endfor %}
+
+    <script>
+    document.getElementById('catSearch').addEventListener('keyup', function() {
+        let filter = this.value.toLowerCase();
+        let posts = document.querySelectorAll('.post-row');
+        
+        posts.forEach(post => {
+            let text = post.textContent.toLowerCase();
+            if (text.includes(filter)) {
+                post.style.display = '';
+            } else {
+                post.style.display = 'none';
+            }
+        });
+    });
+    </script>
 </div>

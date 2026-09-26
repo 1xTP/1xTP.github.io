@@ -10,6 +10,28 @@ pagination:
     </div>
 </header>
 
+{% assign featured = site.writeups | where: "featured", true | first %}
+{% if featured and paginator.page == 1 %}
+<section class="featured-post-container">
+    <article class="post-console featured-console">
+        <div class="featured-badge">
+            <i class="fas fa-star"></i> PINNED
+        </div>
+        <div class="post-edge featured-edge"></div>
+        <div class="post-content featured-content">
+            <div class="post-header">
+                <span class="post-id">[ PID: {{ featured.pid | default: "0000" }} ]</span>
+                <h3>{{ featured.title }}</h3>
+            </div>
+            
+            <p class="post-description">{{ featured.description }}</p>
+            
+            <a href="{{ featured.url | relative_url }}" class="read-cmd featured-cmd">./view_featured.sh</a>
+        </div>
+    </article>
+</section>
+{% endif %}
+
 <section class="posts-container">
     {% for writeup in paginator.posts %}
     <article class="post-console">
