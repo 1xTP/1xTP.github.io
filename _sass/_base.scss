@@ -1,0 +1,46 @@
+@use "variables" as *;
+@use "sass:color";
+
+// ==========================================
+// GLOBAL RESET
+// ==========================================
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+// ==========================================
+// BODY & BASE TYPOGRAPHY
+// ==========================================
+body {
+  background-color: $bg-main;
+  color: $text-light;
+  font-family: $font-sans;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: $font-mono;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+p {
+  margin-bottom: 1rem;
+  color: $text-muted;
+}
+
+// ==========================================
+// GLOBAL LINKS
+// ==========================================
+a {
+  color: $accent-pink;
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: color.adjust($accent-pink, $lightness: 10%);
+  }
+}

@@ -1,0 +1,52 @@
+# ---------- Site ----------
+title: "1xTP | Offensive Security Portfolio"
+description: >-
+  Technical portfolio and research blog detailing offensive security operations,
+  web application exploitation, and Linux system analysis.
+email: 1xtrashpanda@gmail.com
+url: "https://1xtp.github.io"
+baseurl: ""
+lang: en
+github_username: 1xTP
+timezone: America/Los_Angeles
+
+# ---------- Build ----------
+markdown: kramdown
+highlighter: rouge
+future: false
+strict_front_matter: true
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-paginate-v2
+
+collections:
+  writeups:
+    output: true
+    permalink: /:collection/:path/
+
+defaults:
+  - scope:
+      path: ""
+      type: writeups
+    values:
+      layout: post
+
+pagination:
+  enabled: true
+  collection: "writeups"
+  per_page: 5
+  sort_field: "date"
+  sort_reverse: true
+
+feed:
+  collections:
+    - writeups
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/
+  - README.md

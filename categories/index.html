@@ -1,0 +1,42 @@
+---
+layout: default
+title: Categories
+--- 
+<div class="terminal-header">
+  <h1 class="directory-title"><i class="fas fa-folder-tree"></i> Directory Listing</h1>
+  <p class="directory-subtitle">Select a subsystem to view archived reports.</p>
+</div>
+
+<div class="directory-grid">
+  
+  <!-- CTF Writeups Card -->
+  <a href="{{ '/categories/writeups.html' | relative_url }}" class="directory-card">
+    <div class="card-icon"><i class="fas fa-flag"></i></div>
+    <h2 class="card-title">CTF Writeups</h2>
+    <p class="card-desc">Walkthroughs for HackTheBox & TryHackMe machines.</p>
+    <div class="card-footer">
+      <i class="fas fa-file-code"></i> <span>{{ site.writeups | where: "category", "CTFs" | size }} Files</span>
+    </div>
+  </a>
+
+  <!-- Custom Tools Card -->
+  <a href="{{ '/categories/custom-scripts.html' | relative_url }}" class="directory-card">
+    <div class="card-icon"><i class="fas fa-terminal"></i></div>
+    <h2 class="card-title">Custom Tools</h2>
+    <p class="card-desc">Python scripts and bash automation.</p>
+    <div class="card-footer">
+      <i class="fas fa-file-code"></i> <span>{{ site.writeups | where: "category", "Custom-Tools" | size }} Files</span>
+    </div>
+  </a>
+
+  <!-- Research Card -->
+  <a href="{{ '/categories/research.html' | relative_url }}" class="directory-card">
+    <div class="card-icon"><i class="fas fa-book"></i></div>
+    <h2 class="card-title">Research</h2>
+    <p class="card-desc">Studies, data analysis, and documentation.</p>
+    <div class="card-footer">
+      <i class="fas fa-file-code"></i> <span>{{ site.writeups | where: "category", "Research" | size }} Files</span>
+    </div>
+  </a>
+
+</div>

@@ -1,0 +1,54 @@
+---
+layout: default
+title: CTF Writeups
+---
+
+<!-- Terminal Header -->
+<div class="terminal-header search-header">
+  <span class="terminal-prompt">$ find .</span>
+  <span class="terminal-path">-name "</span>
+  <input type="text" id="ctfSearch" class="terminal-input" placeholder="<writeup>" autocomplete="off">
+  <span class="terminal-path">"</span>
+</div>
+
+<div class="ctf-feed">
+  
+  {% assign ctf_writeups = site.writeups | where: "category", "CTFs" | sort: "date" | reverse %}
+  
+  {% for post in ctf_writeups %}
+  <a href="{{ post.url | relative_url }}" class="ctf-card">
+    
+    <!-- Left Difficulty Badge -->
+    <div class="ctf-difficulty difficulty-{{ post.difficulty | default: 'medium' | downcase }}">
+      <span class="difficulty-text">{{ post.difficulty | default: 'Medium' | upcase }}</span>
+    </div>
+    
+    <!-- Right Content Area -->
+    <div class="ctf-content">
+      
+      <div class="ctf-header">
+        <h2 class="ctf-title">{{ post.title }}</h2>
+        <span class="ctf-date">{{ post.date | date: "%b %d, %Y" }}</span>
+      </div>
+      
+      <p class="ctf-description">
+        {{ post.description | default: post.excerpt | strip_html | truncatewords: 25 }}
+      </p>
+      
+      <div class="ctf-footer">
+        <div class="ctf-tags">
+          {% for tag in post.tags %}
+          <span class="tag-hash"><i class="fas fa-tag"></i> {{ tag }}</span>
+          {% endfor %}
+        </div>
+        
+        <div class="ctf-status status-{{ post.status | default: 'rooted' | downcase }}">
+          <i class="fas fa-skull"></i> {{ post.status | default: 'Rooted' | capitalize }}
+        </div>
+      </div>
+      
+    </div>
+  </a>
+  {% endfor %}
+
+</div>

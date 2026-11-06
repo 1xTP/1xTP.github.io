@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: 'en-US' }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title }} | {{ site.title }}</title>
+    <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+    <link rel="icon" href="{{ '/assets/img/favicon-32.ico' | relative_url }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  </head>
+  <body>
+    <div class="site-wrapper">
+      
+      <div class="mobile-header">
+        <div class="mobile-brand-group">
+          <button class="menu-toggle" aria-label="Toggle menu">
+            <i class="fas fa-bars"></i>
+          </button>
+          <a href="{{ '/' | relative_url }}" class="mobile-title">1xTP</a>
+        </div>
+        <ul class="mobile-nav-links">
+          <li><a href="{{ '/about.html' | relative_url }}">About</a></li>
+          <li><a href="{{ '/categories/' | relative_url }}">Categories</a></li>
+        </ul>
+      </div>
+
+      <aside class="sidebar">
+        {% include sidebar.html %}
+      </aside>
+
+      <main class="main-content">
+        <nav class="top-nav">
+          <a href="{{ '/' | relative_url }}" class="brand-title">1xTP</a>
+          <ul class="nav-links">
+            <li><a href="{{ '/about.html' | relative_url }}">About</a></li>
+            <li><a href="{{ '/categories/' | relative_url }}">Categories</a></li>
+          </ul>
+        </nav>
+
+        {{ content }}
+      </main>
+
+    </div>
+    <script src="{{ '/assets/js/main.js' | relative_url }}"></script>
+  </body>
+</html>

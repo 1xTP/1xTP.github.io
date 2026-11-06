@@ -1,0 +1,244 @@
+@use "variables" as *;
+
+// ==========================================
+// WRITEUP CONTAINER & HEADER
+// ==========================================
+.writeup-content {
+  background-color: $bg-panel;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 3rem;
+  
+  @media (max-width: $bp-tablet) {
+    padding: 1.5rem;
+  }
+}
+
+.writeup-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.writeup-title {
+  color: #fff;
+  font-size: 2.2rem;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.writeup-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-family: $font-mono;
+  font-size: 0.9rem;
+  color: $text-muted;
+  margin-bottom: 1rem;
+  
+  .difficulty-badge {
+    padding: 0.15rem 0.6rem;
+    border-radius: 3px;
+    color: #1a1c23;
+    font-weight: bold;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+  }
+}
+
+.writeup-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  
+  .tag-hash {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: $text-muted;
+    font-family: $font-mono;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+  }
+}
+
+.terminal-header .back-link {
+  color: $accent-pink;
+  text-decoration: none;
+  font-family: $font-mono;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ==========================================
+// RENDERED MARKDOWN BODY STYLES
+// ==========================================
+.markdown-body {
+  color: #e2e8f0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  
+  h1, h2, h3, h4, h5, h6 {
+    color: #fff;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    font-family: $font-mono;
+  }
+  
+  h2 {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+  }
+  
+  p {
+    margin-bottom: 1.5rem;
+    color: #e2e8f0;
+  }
+  
+  a {
+    color: $accent-pink;
+    text-decoration: none;
+    border-bottom: 1px dashed $accent-pink;
+    
+    &:hover {
+      border-bottom-style: solid;
+    }
+  }
+  
+  ul, ol {
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+    color: #e2e8f0;
+    
+    li {
+      margin-bottom: 0.5rem;
+    }
+  }
+  
+  blockquote {
+    border-left: 4px solid $accent-pink;
+    background-color: rgba(255, 42, 117, 0.05);
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0 4px 4px 0;
+    
+    p {
+      margin-bottom: 0;
+      color: #fff;
+    }
+  }
+  
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 2rem 0;
+    display: block;
+  }
+  
+  // ----------------------------------------
+  // INLINE CODE (The Pink Highlights)
+  // ----------------------------------------
+  code {
+    font-family: $font-mono;
+    background-color: rgba(255, 255, 255, 0.08);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.85em;
+    color: $accent-pink;
+    font-weight: bold;
+  }
+  
+  // ----------------------------------------
+  // CODE BLOCKS (The Unmarked Terminal Blocks)
+  // ----------------------------------------
+  pre, .highlight pre {
+    background-color: #090a0c;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 3px solid $accent-pink;
+    border-radius: 6px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    
+    code {
+      background-color: transparent;
+      padding: 0;
+      color: #c9d1d9;
+      font-weight: normal;
+      font-size: 0.9rem;
+      border-radius: 0;
+    }
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.5rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    
+    th, td {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.75rem 1rem;
+      text-align: left;
+    }
+    
+    th {
+      background-color: rgba(255, 255, 255, 0.05);
+      font-family: $font-mono;
+      color: #fff;
+    }
+  }
+}
+
+// ==========================================
+// TIME LOCK PANEL
+// ==========================================
+.time-lock-panel {
+  text-align: center;
+  padding: 5rem 2rem;
+  border: 1px dashed $accent-pink;
+  border-radius: 6px;
+  background-color: rgba(255, 42, 117, 0.05);
+  margin-top: 2rem;
+  
+  .lock-icon {
+    font-size: 3rem;
+    color: $accent-pink;
+    margin-bottom: 1.5rem;
+  }
+  
+  h2 {
+    color: #fff;
+    font-family: $font-mono;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+  }
+  
+  p {
+    color: $text-light;
+    font-family: $font-mono;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .unlock-timer {
+    margin-top: 2rem;
+    color: $text-muted;
+    
+    span {
+      display: block;
+      color: $accent-pink;
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-top: 0.5rem;
+    }
+  }
+}

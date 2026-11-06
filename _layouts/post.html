@@ -1,0 +1,48 @@
+---
+layout: default
+---
+
+<div class="terminal-header" style="display: flex; justify-content: space-between;">
+  <div>
+    <span class="terminal-prompt">$ cat</span>
+    <span class="terminal-path">{{ page.title | slugify }}.md</span>
+  </div>
+</div>
+
+<article class="writeup-content">
+  
+  <header class="writeup-header">
+    <h1 class="writeup-title">{{ page.title }}</h1>
+    
+    <div class="writeup-meta">
+      <span class="date"><i class="far fa-calendar-alt"></i> {{ page.date | date: "%b %d, %Y" }}</span>
+      <span class="pid">[ PID: {{ page.pid | default: "0000" }} ]</span>
+      
+      {% if page.difficulty %}
+      <span class="difficulty-badge difficulty-{{ page.difficulty | downcase }}">
+        {{ page.difficulty | upcase }}
+      </span>
+      {% endif %}
+    </div>
+
+    <div class="writeup-tags">
+      {% for tag in page.tags %}
+      <span class="tag-hash">#{{ tag }}</span>
+      {% endfor %}
+    </div>
+  </header>
+
+  {% if page.unlock_date and page.unlock_date > site.time %}
+  <div class="time-lock-panel">
+    <i class="fas fa-lock lock-icon"></i>
+    <h2>[ ACCESS DENIED ]</h2>
+    <p>This report concerns an active target and is currently encrypted.</p>
+    <p class="unlock-timer">Decryption scheduled for: <span>{{ page.unlock_date | date: "%b %d, %Y at %H:%M %Z" }}</span></p>
+  </div>
+  {% else %}
+  <div class="markdown-body">
+    {{ content }}
+  </div>
+  {% endif %}
+
+</article>

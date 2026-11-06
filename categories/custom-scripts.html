@@ -1,0 +1,39 @@
+---
+layout: default
+title: Custom Tools
+---
+
+<div class="terminal-header search-header">
+  <span class="terminal-prompt">$ find .</span>
+  <span class="terminal-path">-name "</span>
+  <input type="text" id="categorySearch" class="terminal-input" placeholder="<tools>" autocomplete="off">
+  <span class="terminal-path">"</span>
+</div>
+
+<div class="post-feed">
+  {% assign tools_writeups = site.writeups | where: "category", "Custom-Tools" | sort: "date" | reverse %}
+  
+  {% for post in tools_writeups %}
+  <article class="post-card searchable-card">
+    <div class="card-header">
+      <span class="pid">[ PID: {{ post.pid | default: "0000" }} ]</span>
+    </div>
+    
+    <h2 class="post-title">{{ post.title }}</h2>
+    <div class="post-meta">{{ post.date | date: "%b %d, %Y" }}</div>
+    
+    <p class="post-description">
+      {{ post.description | default: post.excerpt | strip_html | truncatewords: 35 }}
+    </p>
+    
+    <div class="post-tags">
+      {% for tag in post.tags %}
+      <span class="tag-hash">#{{ tag }}</span>
+      {% endfor %}
+    </div>
+
+    <!-- Updated the bash script name to reflect the tools category -->
+    <a href="{{ post.url | relative_url }}" class="btn-execute">./execute_tool.sh</a>
+  </article>
+  {% endfor %}
+</div>
